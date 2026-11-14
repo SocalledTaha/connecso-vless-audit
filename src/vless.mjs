@@ -39,19 +39,24 @@ function decodeBase64(text) {
 
 export function parseSubscription(input) {
   let text = String(input || '').trim();
-  if (!text.includes('vless://') && text.length < 2_500_000) {
+  if (!/(?:vless|ss|hysteria2|hy2):\/\//i.test(text) && text.length < 2_500_000) {
     try {
       const decoded = decodeBase64(text);
-      if (decoded.includes('vless://')) text = decoded;
+      if (/(?:vless|ss|hysteria2|hy2):\/\//i.test(decoded)) text = decoded;
     } catch {}
   }
   const configs = [];
   const seen = new Set();
   for (const line of text.split(/\r?\n/)) {
     const uri = line.trim();
-    if (!uri.startsWith('vless://') || seen.has(uri)) continue;
+    if (!/^(?:vless|ss|hysteria2|hy2):\/\//i.test(uri) || seen.has(uri)) continue;
     seen.add(uri);
     try {
+      if (/^ss:\/\//i.test(uri)) {
+        const config = parseShadowsocks(uri);
+        if (config) configs.push(config);
+        continue;
+      }
       const parsed = new URL(uri);
       const entries = [...parsed.searchParams.entries()];
       const getParam = (...names) => {
@@ -61,12 +66,26 @@ export function parseSubscription(input) {
         }
         return '';
       };
-      const security = getParam('security').toLowerCase();
       const host = parsed.hostname.replace(/^\[|\]$/g, '');
       const port = Number(parsed.port);
+      const security = getParam('security').toLowerCase();
+      if (!host || !port || port < 1 || port > 65535) continue;
+      if (parsed.protocol === 'hysteria2:' || parsed.protocol === 'hy2:') {
+        const auth = decodeURIComponent(parsed.username || '') + (parsed.password ? ':' + decodeURIComponent(parsed.password) : '');
+        if (!auth) continue;
+        const params = Object.fromEntries(parsed.searchParams.entries());
+        params.sni = getParam('sni', 'servername', 'server_name') || host;
+        params.insecure = ['1', 'true', 'yes'].includes(getParam('insecure').toLowerCase());
+        params.obfs = getParam('obfs').toLowerCase();
+        params.obfsPassword = getParam('obfs-password', 'obfs_password');
+        params.auth = auth;
+        params.type = 'hysteria2';
+        const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : host + ':' + port;
+        configs.push({ uri, protocol: 'hysteria2', transport: 'Hysteria2 / QUIC', host, port, security: 'tls', params, name });
+        continue;
+      }
       const uuid = decodeURIComponent(parsed.username);
-      if (parsed.protocol !== 'vless:' || !host || !port || !uuid) continue;
-      if (!['tls', 'reality'].includes(security)) continue;
+      if (parsed.protocol !== 'vless:' || !uuid || !['tls', 'reality'].includes(security)) continue;
       const params = Object.fromEntries(parsed.searchParams.entries());
       // Accept the standard Xray URI keys and common aliases emitted by subscription converters.
       params.type = getParam('type', 'network') || 'tcp';
@@ -77,14 +96,79 @@ export function parseSubscription(input) {
       params.spx = getParam('spx', 'spiderX', 'spider_x');
       if (security === 'reality' && !params.pbk) continue;
       const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : host + ':' + port;
-      configs.push({ uri, host, port, uuid, security, params, name });
+      const network = params.type.toLowerCase() === 'raw' ? 'tcp' : params.type.toLowerCase();
+      configs.push({ uri, protocol: 'vless', transport: transportLabel(network), host, port, uuid, security, params, name });
     } catch {}
   }
   return configs;
 }
 
+function parseShadowsocks(uri) {
+  const body = uri.slice(uri.indexOf('//') + 2);
+  const hashAt = body.indexOf('#');
+  const name = hashAt >= 0 ? decodeURIComponent(body.slice(hashAt + 1)) : '';
+  const withoutHash = hashAt >= 0 ? body.slice(0, hashAt) : body;
+  const queryAt = withoutHash.indexOf('?');
+  const rawMain = queryAt >= 0 ? withoutHash.slice(0, queryAt) : withoutHash;
+  const query = new URLSearchParams(queryAt >= 0 ? withoutHash.slice(queryAt + 1) : '');
+  let method = '', password = '', host = '', port = 0;
+  const at = rawMain.lastIndexOf('@');
+  if (at >= 0) {
+    const authPart = rawMain.slice(0, at);
+    const addressPart = rawMain.slice(at + 1);
+    const decodedAuth = decodeURIComponent(authPart);
+    if (decodedAuth.includes(':')) {
+      const colon = decodedAuth.indexOf(':');
+      method = decodedAuth.slice(0, colon);
+      password = decodedAuth.slice(colon + 1);
+    } else {
+      const legacy = decodeBase64(decodedAuth);
+      const colon = legacy.indexOf(':');
+      if (colon < 0) return null;
+      method = legacy.slice(0, colon);
+      password = legacy.slice(colon + 1);
+    }
+    const address = new URL('ss://' + addressPart);
+    host = address.hostname.replace(/^\[|\]$/g, '');
+    port = Number(address.port);
+  } else {
+    const legacy = decodeBase64(rawMain);
+    const match = legacy.match(/^([^:]+):(.+)@(.+):(\d+)$/);
+    if (!match) return null;
+    [, method, password, host, port] = match;
+    port = Number(port);
+    if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
+  }
+  if (!method || !password || !host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const params = { method, password, plugin: query.get('plugin') || '' };
+  return {
+    uri, protocol: 'shadowsocks', transport: 'TCP + UDP', host, port,
+    security: method, params, name: name || host + ':' + port,
+  };
+}
+
+function transportLabel(network) {
+  return ({ tcp: 'TCP (Raw)', ws: 'WS', grpc: 'gRPC', xhttp: 'XHTTP', httpupgrade: 'HTTPUpgrade', hysteria: 'Hysteria2 / QUIC' })[network] || network.toUpperCase();
+}
+
 function buildOutbound(config, tag) {
   const q = config.params;
+  if (config.protocol === 'shadowsocks') {
+    if (q.plugin) throw new Error('این لینک Shadowsocks از plugin استفاده می‌کند و برای تست مستقیم با Xray پشتیبانی نمی‌شود.');
+    return { tag, protocol: 'shadowsocks', settings: { servers: [{ address: config.host, port: config.port, method: q.method, password: q.password }] } };
+  }
+  if (config.protocol === 'hysteria2') {
+    const streamSettings = {
+      network: 'hysteria', security: 'tls',
+      tlsSettings: { serverName: q.sni || config.host, allowInsecure: Boolean(q.insecure) },
+      hysteriaSettings: { version: 2, auth: q.auth, udpIdleTimeout: 60 },
+    };
+    if (q.obfs) {
+      if (q.obfs !== 'salamander' || !q.obfsPassword) throw new Error('نوع یا رمز obfuscation این Hysteria2 پشتیبانی نمی‌شود.');
+      streamSettings.finalmask = { udp: [{ type: 'salamander', settings: { password: q.obfsPassword } }] };
+    }
+    return { tag, protocol: 'hysteria', settings: { version: 2, address: config.host, port: config.port }, streamSettings };
+  }
   let network = (q.type || 'tcp').toLowerCase();
   if (network === 'raw') network = 'tcp';
   if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)) {
@@ -169,6 +253,24 @@ export function buildXrayBatchConfig(configs, socksPorts) {
 
 export function toPanelOutbound(config, tag = config.name) {
   const q = config.params;
+  if (config.protocol === 'shadowsocks') {
+    return {
+      tag: String(tag || config.host + ':' + config.port), protocol: 'shadowsocks',
+      settings: { servers: [{ address: config.host, port: config.port, method: q.method, password: q.password }] },
+    };
+  }
+  if (config.protocol === 'hysteria2') {
+    const streamSettings = {
+      network: 'hysteria', security: 'tls',
+      tlsSettings: { serverName: q.sni || config.host, allowInsecure: Boolean(q.insecure) },
+      hysteriaSettings: { version: 2, auth: q.auth, udpIdleTimeout: 60 },
+    };
+    if (q.obfs) {
+      if (q.obfs !== 'salamander' || !q.obfsPassword) throw new Error('نوع یا رمز obfuscation این Hysteria2 پشتیبانی نمی‌شود.');
+      streamSettings.finalmask = { udp: [{ type: 'salamander', settings: { password: q.obfsPassword } }] };
+    }
+    return { tag: String(tag || config.host + ':' + config.port), protocol: 'hysteria', settings: { version: 2, address: config.host, port: config.port }, streamSettings };
+  }
   let network = (q.type || 'tcp').toLowerCase();
   if (network === 'raw') network = 'tcp';
   if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)) {

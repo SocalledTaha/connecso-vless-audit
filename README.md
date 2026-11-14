@@ -1,15 +1,16 @@
-# Connecso VLESS Audit
+# Connecso Outbound Audit
 
 A small self-hosted tool for checking VLESS subscription routes and exporting tested TLS/Reality outbounds as a direct JSON array for compatible panels.
 
 ## What it does
 
 - Reads a subscription URL or pasted text, including Base64 subscriptions.
-- Tests VLESS routes with TLS or Reality through Xray and reports HTTPS response time (RTT/TTFB), exit IP, and estimated exit country.
+- Tests VLESS routes with TLS or Reality, native Shadowsocks links, and Hysteria2 links through Xray; reports HTTPS response time (RTT/TTFB), exit IP, and estimated exit country.
+- Detects each VLESS transport (TCP/Raw, WebSocket, gRPC, HTTPUpgrade, or XHTTP) and identifies Shadowsocks and Hysteria2 transport details.
 - Runs selected HTTPS reachability checks for Gemini, YouTube, Instagram, and Telegram.
 - Checks routes in batches of 10 or 20 using one temporary Xray process per batch; it does not replace or reconfigure any existing Xray service.
 - Saves audit history locally, supports reopening and rescanning prior jobs, and has optional per-route ping and five-second download checks.
-- Filters, sorts, finds duplicates, selects routes, validates VLESS outbound fields, and copies or downloads a direct JSON array grouped by country or selection.
+- Filters by protocol and exit country, sorts, finds duplicates, selects routes, validates outbound fields, and copies or downloads a direct JSON array grouped by country or selection.
 - Includes Persian/English, light/dark themes, and a protected admin login.
 
 The panel is export-only: it does not write outbounds, clients, or routing rules into another panel.
@@ -24,13 +25,19 @@ The panel is export-only: it does not write outbounds, clients, or routing rules
 
 ## Install or resume
 
-Clone this project on the Ubuntu/Debian target server and run:
+On Ubuntu/Debian, run this one-line installer as root:
 
 ```bash
-git clone https://github.com/SocalledTaha/connecso-vless-audit.git vless-audit
-cd vless-audit
-sudo bash install.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/quick-install.sh)
 ```
+
+If logged in as a regular user, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/quick-install.sh | sudo bash
+```
+
+The quick installer clones or updates the project under `/opt/vless-audit/project-source`, then runs the regular installer. Rerunning it resumes an interrupted installation or opens the maintenance menu after setup. It does not overwrite a non-Git directory at that path.
 
 The installer asks for the panel hostname, HTTPS port, optional certificate contact email, and admin password. It obtains a Let's Encrypt certificate, installs renewal hooks, creates an unprivileged service account and systemd unit, and prints the final URL and login. If interrupted, rerun the same script from the same cloned directory. It resumes from the saved stage in `/var/lib/vless-audit/install-state.env` and preserves the configured password and saved audit results.
 

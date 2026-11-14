@@ -296,6 +296,7 @@ async function route(request, response) {
       '/assets/app.css': ['app.css', 'text/css; charset=utf-8'],
       '/assets/app.js': ['app.js', 'text/javascript; charset=utf-8'],
       '/assets/favicon.svg': ['favicon.svg', 'image/svg+xml'],
+      '/assets/connecso-mark-pair.png': ['assets/connecso-mark-pair.png', 'image/png'],
     };
     const asset = assets[url.pathname];
     if (!asset) return fail(response, 404, 'این فایل پیدا نشد.');
@@ -306,7 +307,7 @@ async function route(request, response) {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    return sendJson(response, 200, { ok: true, service: 'VLESS Audit', version: '2.0' });
+    return sendJson(response, 200, { ok: true, service: 'Connecso Outbound Audit', version: '2.1' });
   }
   if (request.method === 'GET' && url.pathname === '/api/history') {
     return sendJson(response, 200, publicHistory());
@@ -334,9 +335,9 @@ async function route(request, response) {
       text = previous.results.map((item) => item.uri).filter(Boolean).join('\n');
     }
     const configs = parseSubscription(text);
-    if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده VLESS دارای TLS یا Reality پیدا نشد.');
+    if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
     const offset = configs.length && subscriptionUrl ? Math.min(previous.offset || 0, configs.length - 1) : 0;
-    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ VLESS دارای TLS یا Reality در آن نبود.';
+    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
     return sendJson(response, 202, await beginJob(configs, offset, previous.batchSize || MAX_CONCURRENT_CHECKS, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds }));
   }
   const routeAction = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/(ping|download)$/);
@@ -399,12 +400,12 @@ async function route(request, response) {
     }
     const configs = parseSubscription(text);
     const subscriptionUrl = input.subscriptionUrl ? String(input.subscriptionUrl).trim() : '';
-    if (!configs.length && !subscriptionUrl) return fail(response, 400, 'VLESS دارای TLS یا Reality در ورودی پیدا نشد.');
+    if (!configs.length && !subscriptionUrl) return fail(response, 400, 'کانفیگ پشتیبانی‌شده‌ای در ورودی پیدا نشد.');
     const offset = Math.max(0, Number.parseInt(input.offset || '0', 10) || 0);
     if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های امن بیشتر است.');
     const requestedBatch = Number.parseInt(input.batchSize || String(MAX_CONCURRENT_CHECKS), 10);
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.isFinite(requestedBatch) ? requestedBatch : MAX_CONCURRENT_CHECKS));
-    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ VLESS دارای TLS یا Reality در آن نبود.';
+    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی پیدا نشد.';
     const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
     return sendJson(response, 202, await beginJob(configs, offset, batchSize, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds }));
   }
@@ -427,4 +428,4 @@ const server = https.createServer({
 server.headersTimeout = 12_000;
 server.requestTimeout = 20_000;
 server.keepAliveTimeout = 5_000;
-server.listen(PORT, HOST, () => console.log('VLESS Audit listening on ' + HOST + ':' + PORT));
+server.listen(PORT, HOST, () => console.log('Connecso Outbound Audit listening on ' + HOST + ':' + PORT));

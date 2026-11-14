@@ -7,16 +7,16 @@ const elements = {
 };
 const dictionaries = {
   fa: {
-    skip:'رفتن به بخش اصلی', private:'محیط خصوصی', xray:'تست واقعی با Xray', darkTheme:'تیره', lightTheme:'روشن', logout:'خروج', toolTitle:'آزمایش اوتباند VLESS', toolSubtitle:'بررسی، مقایسه و آماده‌سازی خروجی JSON', scanOptions:'گزینه‌های بررسی', checkExit:'بررسی IP خروجی',
+    skip:'رفتن به بخش اصلی', private:'محیط خصوصی', xray:'تست واقعی با Xray', darkTheme:'تیره', lightTheme:'روشن', logout:'خروج', toolTitle:'بررسی اوتباند', toolSubtitle:'بررسی، مقایسه و آماده‌سازی خروجی JSON', scanOptions:'گزینه‌های بررسی', checkExit:'بررسی IP خروجی',
     eyebrow:'ابزار بررسی اشتراک', headline:'مسیر سالم را<br><span>سریع و شفاف پیدا کن.</span>',
-    intro:'اتصال VLESS با TLS یا Reality را از مسیر واقعی بررسی کن؛ RTT، کشور IP خروجی و دسترسی HTTPS به سرویس‌ها را ببین.',
+    intro:'اتصال‌های VLESS، Shadowsocks و Hysteria2 را از مسیر واقعی بررسی کن؛ RTT، کشور IP خروجی و دسترسی HTTPS به سرویس‌ها را ببین.',
     proof1:'TLS یا Reality', proof2:'آزمون با Xray', proof3:'RTT و سرویس‌ها', step1:'گام اول', sourceTitle:'منبع کانفیگ را وارد کن', encrypted:'ارتباط رمزگذاری‌شده',
     tabUrl:'لینک اشتراک', tabText:'متن کانفیگ', urlLabel:'آدرس HTTPS اشتراک', urlHint:'آدرس فقط برای دریافت همین نوبت بررسی می‌شود.',
     textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.', offsetLabel:'شروع از کانفیگ', batchLabel:'تست هم‌زمان',
     batchHint:'هر دسته با Xray مشترک بررسی می‌شود.', start:'شروع بررسی', busy:'در حال بررسی…',
     whatChecked:'چه چیزی بررسی می‌شود؟', methodTitle:'پاسخ واقعی،<br>معیار موفقیت است.',
     methodCopy:'Xray از هر کانفیگ وصل می‌شود و درخواست‌های HTTPS را از همان تونل می‌فرستد.',
-    encryptedOnly:'رمزنگاری', tlsRealityOnly:'فقط TLS و Reality', fullConnection:'اتصال کامل', httpsReply:'پاسخ HTTPS از مسیر VLESS', serviceAccess:'دسترسی سرویس',
+    encryptedOnly:'رمزنگاری', tlsRealityOnly:'TLS، Reality یا رمزنگاری پروتکل', fullConnection:'اتصال کامل', httpsReply:'پاسخ HTTPS از مسیر تونل', serviceAccess:'دسترسی سرویس',
     privacy:'بررسی سرویس‌ها فقط دسترسی HTTPS را می‌سنجد و ورود به حساب را آزمایش نمی‌کند.', running:'بررسی در حال اجرا',
     connecting:'در حال اتصال به کانفیگ‌ها', interrupted:'بررسی قبلی نیمه‌کاره ماند', completed:'بررسی تمام شد',
     xrayRunning:'Xray در حال آزمایش مسیرهاست.', batchProgress:(n)=>`Xray در حال آزمایش دسته‌های ${faNum.format(n)}تایی است؛ این صفحه را باز نگه دار.`,
@@ -31,26 +31,26 @@ const dictionaries = {
     resultsChunk:(a,b)=>`دریافت ${faNum.format(a)} از ${faNum.format(b)} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
     noName:'کانفیگ بدون نام', rttLabel:'پینگ HTTP', pingAgain:'چک پینگ مجدد', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
-    oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'اوتباند VLESS معتبر نیست', requiredFields:'آدرس، پورت یا UUID ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'فقط TLS و Reality قابل خروجی هستند', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است',
+    oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
-    allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${faNum.format(n)} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allSecurity:'TLS و Reality', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${faNum.format(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر',
-    footer1:'آزمون اتصال با Xray', footer2:'موقعیت کشور بر پایهٔ IP خروجی تخمین زده می‌شود.',
+    allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${faNum.format(n)} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${faNum.format(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
+    footer1:'خروجی JSON برای کلاینت‌های سازگار', footerBrand:'از خانوادهٔ Connecso', footerByline:'ساخته‌شده توسط Taha · @SocalledTaha', footerPromo:'کلاینت Connecso برای ویندوز را دریافت کن؛ نسخهٔ ۰٫۲٫۴', footerProject:'کد پنل', footerDownload:'دریافت Connecso 0.2.4',
     askUrl:'آدرس HTTPS اشتراک را وارد کن.', askText:'متن کانفیگ‌ها را وارد کن.', reading:'در حال خواندن و اعتبارسنجی ورودی…',
-    newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر VLESS دریافت نشد.',
+    newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر کانفیگ دریافت نشد.',
     serviceHint:'دسترسی فقط با درخواست HTTPS بررسی می‌شود؛ وضعیت ممکن است با محدودیت منطقه‌ای سرویس فرق داشته باشد.',
     themeLabel:'تغییر تم', langLabel:'Switch to English', healthError:'ارتباط با سرویس برقرار نشد',
   },
   en: {
-    skip:'Skip to main content', private:'Private workspace', xray:'Live Xray checks', darkTheme:'Dark', lightTheme:'Light', logout:'Log out', toolTitle:'VLESS outbound checks', toolSubtitle:'Check, compare, and prepare outbound JSON', scanOptions:'Check options', checkExit:'Check exit IP',
+    skip:'Skip to main content', private:'Private workspace', xray:'Live Xray checks', darkTheme:'Dark', lightTheme:'Light', logout:'Log out', toolTitle:'Outbound checks', toolSubtitle:'Check, compare, and prepare outbound JSON', scanOptions:'Check options', checkExit:'Check exit IP',
     eyebrow:'Subscription route audit', headline:'Find working routes<br><span>quickly and clearly.</span>',
-    intro:'Test VLESS with TLS or Reality through a real route. Review RTT, exit IP country, and HTTPS reachability for popular services.',
+    intro:'Test VLESS, Shadowsocks, and Hysteria2 through a real route. Review RTT, exit IP country, and HTTPS reachability for popular services.',
     proof1:'TLS or Reality', proof2:'Tested with Xray', proof3:'RTT and services', step1:'STEP 1', sourceTitle:'Choose a configuration source', encrypted:'Encrypted connection',
     tabUrl:'Subscription URL', tabText:'Paste configs', urlLabel:'HTTPS subscription URL', urlHint:'The URL is fetched only for this audit.',
     textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.', offsetLabel:'Start at config', batchLabel:'Concurrent checks',
     batchHint:'Each batch is checked through one shared Xray instance.', start:'Start audit', busy:'Checking…',
     whatChecked:'What gets checked?', methodTitle:'A real response<br>is the success signal.',
     methodCopy:'Xray connects with each config and sends HTTPS requests through that same tunnel.',
-    encryptedOnly:'Encryption', tlsRealityOnly:'TLS and Reality only', fullConnection:'Full connection', httpsReply:'HTTPS reply through VLESS', serviceAccess:'Service access',
+    encryptedOnly:'Encryption', tlsRealityOnly:'TLS, Reality, or protocol encryption', fullConnection:'Full connection', httpsReply:'HTTPS reply through the tunnel', serviceAccess:'Service access',
     privacy:'Service checks measure HTTPS reachability only. They do not sign in to accounts.', running:'AUDIT IN PROGRESS',
     connecting:'Connecting through configurations', interrupted:'Previous audit was interrupted', completed:'Audit complete',
     xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>`Xray is testing batches of ${n} configs. Keep this page open.`,
@@ -64,18 +64,18 @@ const dictionaries = {
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
     noName:'Unnamed config', rttLabel:'HTTP ping', pingAgain:'Check ping again', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
-    oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid VLESS outbound', requiredFields:'Address, port, or UUID is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'Only TLS and Reality can be exported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing',
+    oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
-    allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allSecurity:'TLS and Reality', anyService:'Any service', selectionCount:(n)=>`${n} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound',
-    footer1:'Connection checks with Xray', footer2:'Exit country is estimated from the outgoing IP.',
-    askUrl:'Enter an HTTPS subscription URL.', askText:'Paste one or more VLESS configs.', reading:'Reading and validating input…',
-    newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this VLESS route.',
+    allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${n} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
+    footer1:'JSON export for compatible clients', footerBrand:'Part of the Connecso family', footerByline:'Created by Taha · @SocalledTaha', footerPromo:'Get the Connecso Windows client · version 0.2.4', footerProject:'Panel source', footerDownload:'Get Connecso 0.2.4',
+    askUrl:'Enter an HTTPS subscription URL.', askText:'Paste one or more supported configs.', reading:'Reading and validating input…',
+    newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this route.',
     serviceHint:'Checks use HTTPS requests only; regional service restrictions may affect availability.',
     themeLabel:'Toggle theme', langLabel:'تغییر زبان به فارسی', healthError:'Could not connect to the audit service',
   },
 };
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null };
+const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { return state.lang === 'fa' ? faNum.format(value) : new Intl.NumberFormat('en-US').format(value); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -139,11 +139,11 @@ async function loadResults(jobId, title = t('resultTitle')) {
       elements.resultsSummary.textContent = t('resultsChunk', number(all.length), number(chunk.success));
       if (all.length >= chunk.success || chunk.results.length === 0) break;
     }
-    state.currentResults = all; state.currentJob = jobId; state.selectedUris.clear(); elements.search.value = ''; renderResults();
+    state.currentResults = all; state.currentJob = jobId; state.selectedCountry = 'all'; state.selectedUris.clear(); elements.search.value = ''; renderResults();
     elements.resultsSummary.textContent = t('resultsLoaded', number(all.length), number(info?.total || all.length));
   } catch (error) { elements.countries.innerHTML = `<div class="empty-history">${escapeHtml(t('loadErr'))}: ${escapeHtml(error.message)}</div>`; elements.resultsSummary.textContent = t('retryHistory'); }
 }
-function searchable(item) { return `${item.country || ''} ${item.name || ''} ${item.endpoint || ''} ${item.ip || ''} ${item.security || ''}`.toLocaleLowerCase(); }
+function searchable(item) { return `${item.country || ''} ${item.name || ''} ${item.endpoint || ''} ${item.ip || ''} ${item.security || ''} ${item.protocol || ''} ${item.transport || ''}`.toLocaleLowerCase(); }
 const serviceIcons = {
   gemini:'<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="#8ab4f8" d="M8 0c.8 3.6 2.4 5.2 8 8-5.6 2.8-7.2 4.4-8 8C7.2 12.4 5.6 10.8 0 8 5.6 5.2 7.2 3.6 8 0Z"/></svg>',
   youtube:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="3" fill="#ff3344"/><path d="m7 5.5 4 2.5-4 2.5z" fill="white"/></svg>',
@@ -153,9 +153,23 @@ const serviceIcons = {
 const serviceNames = { gemini:'Gemini', youtube:'YouTube', instagram:'Instagram', telegram:'Telegram' };
 function outboundIssues(item) {
   const outbound = item.outbound;
-  if (!outbound || outbound.protocol !== 'vless') return [t('unsupportedOutbound')];
+  if (!outbound) return [t('unsupportedOutbound')];
   const settings = outbound.settings || {};
   const stream = outbound.streamSettings || {};
+  if (outbound.protocol === 'shadowsocks') {
+    const server = settings.servers?.[0] || {};
+    if (!server.address || !Number.isInteger(Number(server.port)) || !server.method || !server.password) return [t('requiredFields')];
+    if (item.plugin) return [t('unsupportedTransport')];
+    return [];
+  }
+  if (outbound.protocol === 'hysteria') {
+    const hysteria = stream.hysteriaSettings || {};
+    if (!settings.address || !Number.isInteger(Number(settings.port)) || !hysteria.auth) return [t('requiredFields')];
+    if (stream.network !== 'hysteria' || stream.security !== 'tls') return [t('unsupportedTransport')];
+    if (!(stream.tlsSettings || {}).serverName) return [t('missingSni')];
+    return [];
+  }
+  if (outbound.protocol !== 'vless') return [t('unsupportedOutbound')];
   const network = String(stream.network || 'tcp').toLowerCase();
   const issues = [];
   if (!settings.address || !Number.isInteger(Number(settings.port)) || Number(settings.port) < 1 || Number(settings.port) > 65535 || !settings.id) issues.push(t('requiredFields'));
@@ -209,12 +223,20 @@ function resultCard(item, index) {
       : '';
   const speed = item.speedCheck ? `<small class="${item.speedCheck.ok ? 'speed-result' : 'speed-error'}" title="${escapeHtml(item.speedCheck.error || '')}">${escapeHtml(speedText)}</small>` : '';
   const issues = outboundIssues(item); const duplicate = duplicateUris().has(item.uri);
-  return `<article class="result-item"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag">${escapeHtml(item.security)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
+  const protocolLabel = item.protocol === 'hysteria2' ? 'Hysteria2' : item.protocol === 'shadowsocks' ? 'Shadowsocks' : 'VLESS';
+  const details = [protocolLabel, item.transport || '—', item.security || ''].filter(Boolean).join(' · ');
+  return `<article class="result-item"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
 }
 function countryOutbounds(country) {
   return uniqueOutbounds(state.currentResults.filter((item) => (item.country || t('countryUnknown')) === country));
 }
-function countryFilename(country) { const slug = country.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'unknown'; return `vless-${slug}.json`; }
+function countryFilename(country) { const slug = country.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'unknown'; return `outbounds-${slug}.json`; }
+function flagEmoji(code) { return /^[a-z]{2}$/i.test(code || '') ? String.fromCodePoint(...[...code.toUpperCase()].map((char) => 127397 + char.charCodeAt(0))) : '🌐'; }
+function localizedCountry(item) {
+  if (!item.countryCode) return item.country || t('countryUnknown');
+  try { return new Intl.DisplayNames([state.lang], { type:'region' }).of(item.countryCode.toUpperCase()) || item.country; }
+  catch { return item.country || item.countryCode; }
+}
 function downloadJson(country, button) {
   const outbounds = countryOutbounds(country); if (!outbounds.length) return;
   const blob = new Blob([JSON.stringify(outbounds, null, 2)], { type:'application/json;charset=utf-8' }); const link = document.createElement('a'); const objectUrl = URL.createObjectURL(blob);
@@ -243,12 +265,20 @@ function renderResults() {
   const openCountries = new Set(existingCards.filter((card) => card.open).map((card) => card.dataset.country));
   const allConfigsWasOpen = existingCards.some((card) => card.dataset.view === 'name' && card.open);
   const query = elements.search.value.trim().toLocaleLowerCase();
-  const securityFilter = $('#result-security').value;
+  const protocolFilter = $('#result-security').value;
   const serviceFilter = $('#result-service').value;
+  const countries = new Map();
+  for (const item of state.currentResults) {
+    const key = item.countryCode || item.country || 'unknown';
+    if (!countries.has(key)) countries.set(key, item);
+  }
+  const countryFilters = $('#country-filters');
+  if (countryFilters) countryFilters.innerHTML = `<button class="country-filter ${state.selectedCountry === 'all' ? 'active' : ''}" type="button" data-country-filter="all" aria-pressed="${state.selectedCountry === 'all'}"><span>🌐</span><span>${escapeHtml(t('allCountries'))}</span></button>${[...countries.entries()].sort(([,a],[,b]) => localizedCountry(a).localeCompare(localizedCountry(b), state.lang)).map(([key,item]) => `<button class="country-filter ${state.selectedCountry === key ? 'active' : ''}" type="button" data-country-filter="${escapeHtml(key)}" aria-pressed="${state.selectedCountry === key}"><span>${flagEmoji(item.countryCode)}</span><span>${escapeHtml(localizedCountry(item))}</span></button>`).join('')}`;
   const duplicates = duplicateUris();
   const filtered = state.currentResults.filter((item) => {
     if (query && !searchable(item).includes(query)) return false;
-    if (securityFilter !== 'all' && String(item.security).toLowerCase() !== securityFilter) return false;
+    if (protocolFilter !== 'all' && String(item.protocol).toLowerCase() !== protocolFilter) return false;
+    if (state.selectedCountry !== 'all' && String(item.countryCode || item.country || 'unknown') !== state.selectedCountry) return false;
     if (serviceFilter !== 'all' && !item.services?.some((service) => service.id === serviceFilter && service.ok)) return false;
     if ($('#hide-duplicates').checked && duplicates.has(item.uri)) return false;
     return true;
@@ -320,6 +350,7 @@ $('#copy-selected-json').addEventListener('click',(event)=>{const items=state.cu
 $('#copy-all-json').addEventListener('click',(event)=>copyText(JSON.stringify(uniqueOutbounds(state.currentResults),null,2),event.currentTarget));
 $('#result-sort').addEventListener('change',(event)=>{state.sortBy=event.target.value;renderResults();});
 $('#result-security').addEventListener('change',renderResults);$('#result-service').addEventListener('change',renderResults);$('#hide-duplicates').addEventListener('change',renderResults);
+$('#country-filters').addEventListener('click',(event)=>{const button=event.target.closest('[data-country-filter]');if(!button)return;state.selectedCountry=button.dataset.countryFilter;renderResults();});
 $('#language-toggle').addEventListener('click',()=>{state.lang=state.lang==='fa'?'en':'fa';localStorage.setItem('vless-audit-lang',state.lang);applyLanguage();});
 $('#theme-toggle').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
 $('#logout-button').addEventListener('click',async()=>{try{await fetch('/api/logout',{method:'POST',cache:'no-store'});}finally{window.location.assign('/login');}});

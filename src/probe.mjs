@@ -42,7 +42,7 @@ export async function geoMap(addresses) {
       if (!response.ok) continue;
       const values = await response.json();
       for (const item of values) {
-        if (item.status === 'success') countries[item.query] = item.country || '';
+        if (item.status === 'success') countries[item.query] = { country: item.country || '', countryCode: item.countryCode || '' };
       }
     } catch {}
   }
@@ -109,7 +109,10 @@ function resultBase(config, countries) {
   return {
     name: config.name,
     endpoint: config.host + ':' + config.port,
+    protocol: config.protocol,
+    transport: config.transport,
     security: config.security.toUpperCase(),
+    plugin: config.params.plugin || '',
     outbound: toPanelOutbound(config),
     ip: '',
     country: '',
@@ -150,10 +153,10 @@ async function testThroughSocks(config, base, port, options = {}) {
       base.exit = String(ipResult.stdout).trim();
     }
     base.ok = base.httpStatus >= 200 && base.httpStatus < 400 && (!checkExit || Boolean(base.exit));
-    if (!base.ok) base.error = 'پاسخ HTTPS از مسیر VLESS دریافت نشد.';
+    if (!base.ok) base.error = 'پاسخ HTTPS از مسیر این کانفیگ دریافت نشد.';
     else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port)));
   } catch (error) {
-    base.error = error.message || 'اتصال VLESS/HTTPS ناموفق بود.';
+    base.error = error.message || 'اتصال HTTPS از مسیر کانفیگ ناموفق بود.';
   }
   return base;
 }
@@ -184,7 +187,9 @@ export async function testOne(config, countries, options = {}) {
     return base;
   }
   base.ip = addresses.slice().sort()[0];
-  base.country = countries[base.ip] || '';
+  const location = countries[base.ip];
+  base.country = typeof location === 'string' ? location : location?.country || '';
+  base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';
   const port = await reservePort();
   const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-'));
   let child;
@@ -215,7 +220,9 @@ export async function testBatch(configs, countries, options = {}) {
         return;
       }
       base.ip = addresses.slice().sort()[0];
-      base.country = countries[base.ip] || '';
+      const location = countries[base.ip];
+      base.country = typeof location === 'string' ? location : location?.country || '';
+      base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';
       // Validate transport/security independently so one malformed config does not fail the batch.
       buildXrayConfig(config, 1);
       entries.push({ config, base, index });

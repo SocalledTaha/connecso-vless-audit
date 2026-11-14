@@ -195,11 +195,23 @@ fi
 printf '\n[5/5] Installing/updating the panel files and service…\n'
 if ! getent group "$APP_NAME" >/dev/null; then groupadd --system "$APP_NAME"; fi
 if ! id "$APP_NAME" >/dev/null 2>&1; then useradd --system --gid "$APP_NAME" --home-dir "$DATA_DIR" --shell /usr/sbin/nologin "$APP_NAME"; fi
-install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$CONFIG_DIR"
+install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/public/assets" "$CONFIG_DIR"
 install -d -o "$APP_NAME" -g "$APP_NAME" -m 0750 "$DATA_DIR" "$DATA_DIR/results"
 for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$file" "$APP_DIR/$file"; done
 for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done
+if [[ -d "$SOURCE_DIR/public/assets" ]]; then
+  for file in "$SOURCE_DIR"/public/assets/*; do
+    [[ -f "$file" ]] || continue
+    install -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/public/assets/$(basename "$file")"
+  done
+fi
+if [[ -d "$SOURCE_DIR/public/assets" ]]; then
+  for file in "$SOURCE_DIR"/public/assets/*; do
+    [[ -f "$file" ]] || continue
+    install -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/public/assets/$(basename "$file")"
+  done
+fi
 
 install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
 install -o root -g root -m 0755 "$SOURCE_DIR/manage.sh" /usr/local/lib/connecso-tools/manage.sh
