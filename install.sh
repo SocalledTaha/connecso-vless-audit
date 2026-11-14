@@ -11,6 +11,17 @@ ENV_FILE="$CONFIG_DIR/panel.env"
 CERTBOT="/usr/bin/certbot"
 ACTIVE_HTTP_SERVICES=()
 
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_CYAN=$'\033[1;36m'
+  C_GREEN=$'\033[1;32m'
+  C_YELLOW=$'\033[1;33m'
+  C_DIM=$'\033[2m'
+else
+  C_RESET=''; C_BOLD=''; C_CYAN=''; C_GREEN=''; C_YELLOW=''; C_DIM=''
+fi
+
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 save_state() {
   install -d -m 0700 "$DATA_DIR"
@@ -267,7 +278,12 @@ systemctl daemon-reload
 systemctl enable --now "$APP_NAME.service"
 systemctl restart "$APP_NAME.service"
 STAGE=6; save_state
-printf '\nInstallation complete: https://%s:%s/\n' "$DOMAIN" "$PORT"
-printf 'Login user: admin\nAdmin password: %s\n' "$PANEL_PASSWORD"
-printf 'A rerun will resume from the saved stage and preserve results and password.\n'
-printf 'Remove %s only after confirming the panel works and the password is saved.\n' "$STATE_FILE"
+printf '\n%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
+printf '%s│%s  %s✓  INSTALLATION COMPLETE%s                                  %s│%s\n' "$C_CYAN" "$C_RESET" "$C_GREEN" "$C_RESET" "$C_CYAN" "$C_RESET"
+printf '%s╰──────────────────────────────────────────────────────────────╯%s\n' "$C_CYAN" "$C_RESET"
+printf '\n  %sPanel URL%s       %s%shttps://%s:%s/%s\n' "$C_BOLD" "$C_RESET" "$C_CYAN" "$C_BOLD" "$DOMAIN" "$PORT" "$C_RESET"
+printf '  %sLogin user%s      %sadmin%s\n' "$C_BOLD" "$C_RESET" "$C_GREEN" "$C_RESET"
+printf '  %sAdmin password%s  %s%s%s\n' "$C_BOLD" "$C_RESET" "$C_YELLOW" "$PANEL_PASSWORD" "$C_RESET"
+printf '\n  %sSave these login details before closing this terminal.%s\n' "$C_DIM" "$C_RESET"
+printf '  %sRerunning the installer preserves the results and password.%s\n' "$C_DIM" "$C_RESET"
+printf '  %sRemove %s only after confirming the panel works and saving the password.%s\n' "$C_DIM" "$STATE_FILE" "$C_RESET"
