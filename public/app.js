@@ -75,7 +75,7 @@ const dictionaries = {
   },
 };
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null };
+const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '' };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { return state.lang === 'fa' ? faNum.format(value) : new Intl.NumberFormat('en-US').format(value); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -225,7 +225,7 @@ function resultCard(item, index) {
   const issues = outboundIssues(item); const duplicate = duplicateUris().has(item.uri);
   const protocolLabel = item.protocol === 'hysteria2' ? 'Hysteria2' : item.protocol === 'shadowsocks' ? 'Shadowsocks' : 'VLESS';
   const details = [protocolLabel, item.transport || '—', item.security || ''].filter(Boolean).join(' · ');
-  return `<article class="result-item"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
+  return `<article class="result-item${state.lastPingUri === item.uri ? ' ping-updated' : ''}" data-result-index="${index}"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
 }
 function countryOutbounds(country) {
   return uniqueOutbounds(state.currentResults.filter((item) => (item.country || t('countryUnknown')) === country));
@@ -246,7 +246,19 @@ function downloadJson(country, button) {
 async function rerunPing(index, button) {
   const item=state.currentResults[index]; if(!item?.uri||state.busy)return;
   setBusy(true);button.disabled=true;button.textContent=t('pingChecking');
-  try{item.pingCheck=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/ping`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});renderResults();}
+  try{
+    item.pingCheck=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/ping`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});
+    state.lastPingUri=item.uri;
+    renderResults();
+    requestAnimationFrame(()=>{
+      const card=elements.countries.querySelector(`[data-result-index="${index}"]`);
+      if(!card)return;
+      const group=card.closest('details'); if(group)group.open=true;
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+      card.classList.add('ping-updated');
+      window.setTimeout(()=>{card.classList.remove('ping-updated');if(state.lastPingUri===item.uri)state.lastPingUri='';},2800);
+    });
+  }
   catch(error){showError(error.message);button.disabled=false;button.textContent=t('pingAgain');}
   finally{setBusy(false);}
 }
