@@ -30,7 +30,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${faNum.format(s)} نتیجهٔ موفق · ${faNum.format(t)} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
     resultsChunk:(a,b)=>`دریافت ${faNum.format(a)} از ${faNum.format(b)} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
-    noName:'کانفیگ بدون نام', rttLabel:'پینگ HTTP', pingAgain:'چک پینگ مجدد', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
+    noName:'کانفیگ بدون نام', rttLabel:'پینگ HTTP', pingAgain:'چک پینگ مجدد', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
     oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'اوتباند VLESS معتبر نیست', requiredFields:'آدرس، پورت یا UUID ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'فقط TLS و Reality قابل خروجی هستند', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
     allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${faNum.format(n)} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allSecurity:'TLS و Reality', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${faNum.format(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر',
@@ -63,7 +63,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${s} working results · ${t} configs checked · loaded in pages`,
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
-    noName:'Unnamed config', rttLabel:'HTTP ping', pingAgain:'Check ping again', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`Average ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
+    noName:'Unnamed config', rttLabel:'HTTP ping', pingAgain:'Check ping again', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
     oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid VLESS outbound', requiredFields:'Address, port, or UUID is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'Only TLS and Reality can be exported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
     allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allSecurity:'TLS and Reality', anyService:'Any service', selectionCount:(n)=>`${n} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound',
@@ -87,7 +87,7 @@ function applyLanguage() {
   $('#language-toggle').textContent = state.lang === 'fa' ? 'EN' : 'FA';
   $('#language-toggle').setAttribute('aria-label', t('langLabel'));
   $('#theme-toggle').setAttribute('aria-label', t('themeLabel'));
-  $('#theme-toggle [data-theme-label]').textContent = t(document.documentElement.dataset.theme === 'dark' ? 'darkTheme' : 'lightTheme');
+  $('#theme-toggle [data-theme-label]').textContent = t(document.documentElement.dataset.theme === 'dark' ? 'lightTheme' : 'darkTheme');
   document.querySelectorAll('.tab').forEach((tab) => { const key = tab.dataset.mode === 'url' ? 'tabUrl' : 'tabText'; tab.textContent = t(key); });
   document.querySelectorAll('.view-tab').forEach((tab) => { tab.textContent = t(tab.dataset.view === 'country' ? 'byCountry' : 'byName'); });
   if (state.lastJob) setProgress(state.lastJob);
@@ -98,7 +98,7 @@ function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('vless-audit-theme', theme);
   $('#theme-toggle .theme-symbol').textContent = theme === 'dark' ? '☼' : '☾';
-  $('#theme-toggle [data-theme-label]').textContent = t(theme === 'dark' ? 'darkTheme' : 'lightTheme');
+  $('#theme-toggle [data-theme-label]').textContent = t(theme === 'dark' ? 'lightTheme' : 'darkTheme');
   document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#080c10' : '#f3f8fb';
 }
 function showError(message = '') { elements.error.textContent = message; elements.error.hidden = !message; }

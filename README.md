@@ -67,6 +67,6 @@ Run `sudo bash uninstall.sh`. By default, it removes the application and service
 - Subscription URLs must use HTTPS and resolve to public IP addresses; local/private targets are rejected.
 - The service runs as an unprivileged `vless-audit` account with systemd filesystem protections.
 - Only one audit job runs at a time. Each 10/20-route batch uses one temporary Xray process, then cleans it up.
-- Download checks are explicit per route and do not run during the initial scan.
+- Download checks are explicit per route and do not run during the initial scan. Each manual check opens four parallel HTTPS downloads through that route's single temporary Xray process and reports their combined average throughput over five seconds.
 - Audit history may contain subscription URLs and config data. Restrict server access and back it up only where appropriate.
 

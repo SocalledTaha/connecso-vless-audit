@@ -250,84 +250,102 @@ export async function testBatch(configs, countries, options = {}) {
 }
 
 export async function testDownload(config) {
+  const connections = 4;
   const port = await reservePort();
   const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-speed-'));
   let child;
+  const downloads = [];
   try {
     const configPath = path.join(directory, 'config.json');
-    const headersPath = path.join(directory, 'response-headers.txt');
     await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
     await waitForSocks(child, port);
-    const args = [
-      '-sS', '-L', '--connect-timeout', '12', '--max-time', '22',
-      '-D', headersPath,
-      '-x', 'socks5h://127.0.0.1:' + port,
-      'https://proof.ovh.net/files/1Gb.dat',
-    ];
     let bytes = 0;
-    let status = 0;
-    let errorText = '';
+    const statuses = [];
+    const errors = [];
     let firstByteAt = 0;
     let measuredSeconds = 0;
     let measurementEnded = false;
     let durationTimer;
-    const startedAt = performance.now();
     await new Promise((resolve, reject) => {
-      const download = spawn('curl', args, { stdio: ['ignore', 'pipe', 'pipe'] });
       let settled = false;
+      let remaining = connections;
+      const guardTimer = setTimeout(() => {
+        for (const download of downloads) if (download.exitCode === null) download.kill('SIGTERM');
+        finish(new Error(errors.join(' · ') || 'دانلود آزمایشی پس از مهلت اتصال متوقف شد.'));
+      }, 24_000);
       const finish = (error) => {
         if (settled) return;
         settled = true;
         clearTimeout(durationTimer);
+        clearTimeout(guardTimer);
         if (error) reject(error); else resolve();
       };
-      const guardTimer = setTimeout(() => {
-        if (download.exitCode === null) download.kill('SIGTERM');
-        finish(new Error('دانلود آزمایشی پس از مهلت اتصال متوقف شد.'));
-      }, 24_000);
-      download.stdout.on('data', (chunk) => {
-        if (!firstByteAt) {
-          firstByteAt = performance.now();
-          durationTimer = setTimeout(() => {
-            measuredSeconds = 5;
-            measurementEnded = true;
-            if (download.exitCode === null) download.kill('SIGTERM');
-          }, 5_000);
-        }
-        if (!measurementEnded) bytes += chunk.length;
-      });
-      download.stderr.on('data', (chunk) => { errorText += chunk.toString(); });
-      download.once('error', (error) => { clearTimeout(guardTimer); finish(error); });
-      download.once('close', async () => {
-        clearTimeout(guardTimer);
-        let headerText = '';
-        try { headerText = await readFile(headersPath, 'utf8'); } catch {}
-        const headerStatuses = [...headerText.matchAll(/^HTTP\/\S+\s+(\d{3})/gm)];
-        status = headerStatuses.length ? Number(headerStatuses.at(-1)[1]) : 0;
-        if (firstByteAt && !measuredSeconds) measuredSeconds = Math.max(0, (performance.now() - firstByteAt) / 1000);
-        finish();
-      });
+      for (let index = 0; index < connections; index += 1) {
+        const headersPath = path.join(directory, `response-headers-${index}.txt`);
+        const args = [
+          '-sS', '-L', '--connect-timeout', '12', '--max-time', '22',
+          '-D', headersPath,
+          '-x', 'socks5h://127.0.0.1:' + port,
+          'https://proof.ovh.net/files/1Gb.dat',
+        ];
+        const download = spawn('curl', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+        downloads.push(download);
+        download.stdout.on('data', (chunk) => {
+          if (measurementEnded) return;
+          if (!firstByteAt) {
+            firstByteAt = performance.now();
+            durationTimer = setTimeout(() => {
+              measuredSeconds = 5;
+              measurementEnded = true;
+              for (const active of downloads) if (active.exitCode === null) active.kill('SIGTERM');
+            }, 5_000);
+          }
+          bytes += chunk.length;
+        });
+        download.stderr.on('data', (chunk) => { if (chunk.length) errors.push(chunk.toString().trim()); });
+        download.once('error', (error) => { errors.push(error.message); });
+        download.once('close', async () => {
+          let headerText = '';
+          try { headerText = await readFile(headersPath, 'utf8'); } catch {}
+          const headerStatuses = [...headerText.matchAll(/^HTTP\/\S+\s+(\d{3})/gm)];
+          if (headerStatuses.length) statuses.push(Number(headerStatuses.at(-1)[1]));
+          remaining -= 1;
+          if (remaining === 0) {
+            if (firstByteAt && !measuredSeconds) measuredSeconds = Math.max(0, (performance.now() - firstByteAt) / 1000);
+            finish();
+          }
+        });
+      }
     });
-    const seconds = measuredSeconds || Math.max(0, (performance.now() - startedAt) / 1000);
+    const status = statuses.includes(200) ? 200 : (statuses.find((value) => value !== 0) || 0);
+    const errorText = errors.join(' · ');
+    const seconds = measuredSeconds;
     // When the five-second cutoff sends SIGTERM, curl may exit before flushing its
-    // final status metadata. A substantial streamed body confirms the test payload;
-    // tiny denial/error bodies do not pass this threshold.
-    if (!status && bytes > 1_048_576) status = 200;
+    // final status metadata. A substantial streamed body confirms the payload.
+    if (!status && bytes > 1_048_576) statuses.push(200);
+    const finalStatus = status || (statuses.includes(200) ? 200 : 0);
     return {
-      ok: status === 200 && bytes > 0 && seconds > 0,
-      status: Number.isFinite(status) ? status : 0,
+      ok: finalStatus === 200 && bytes > 0 && seconds > 0,
+      status: Number.isFinite(finalStatus) ? finalStatus : 0,
       bytes,
       seconds: Math.round(seconds * 100) / 100,
       megabytesPerSecond: seconds > 0 ? Math.round((bytes / 1024 / 1024 / seconds) * 100) / 100 : 0,
-      maxBytes: 1_073_741_824,
-      error: status && status !== 200
-        ? `سرور تست پاسخ HTTP ${status} داد.`
+      connections,
+      error: finalStatus && finalStatus !== 200
+        ? `سرور تست پاسخ HTTP ${finalStatus} داد.`
         : bytes === 0
           ? errorText || 'در مهلت اتصال داده‌ای از مسیر این کانفیگ دریافت نشد.'
-          : errorText,
+          : '',
     };
   } finally {
+    for (const download of downloads) if (download.exitCode === null) download.kill('SIGTERM');
+    await Promise.all(downloads.map((download) => download.exitCode !== null || download.signalCode !== null
+      ? Promise.resolve()
+      : new Promise((resolve) => {
+        const timer = setTimeout(() => { if (download.exitCode === null && download.signalCode === null) download.kill('SIGKILL'); }, 900);
+        download.once('close', () => { clearTimeout(timer); resolve(); });
+      })));
     if (child && child.exitCode === null) {
       child.kill('SIGTERM');
       await Promise.race([
