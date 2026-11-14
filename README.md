@@ -38,6 +38,8 @@ To update an installation, pull the new project version in the cloned directory 
 
 The installer will not continue with certificate issuance unless DNS resolves to that server's public IPv4. The registrar or DNS provider must not proxy/redirect the hostname during HTTP-01 issuance.
 
+If an installation stops at a stage, run `git pull` in the cloned directory and rerun `sudo bash install.sh`. Completed stages are saved, so it resumes without repeating successful setup steps.
+
 ## Service operations
 
 ```bash

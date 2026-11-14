@@ -92,7 +92,13 @@ if (( STAGE < 3 )); then
   if (( NODE_MAJOR < 18 )); then
     MACHINE="$(uname -m)"
     case "$MACHINE" in x86_64|amd64) NODE_ARCH=x64 ;; aarch64|arm64) NODE_ARCH=arm64 ;; *) die "Unsupported CPU architecture: $MACHINE" ;; esac
-    NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.tab | awk 'NR>1 && $1 ~ /^v22\./ {print $1; exit}')"
+    NODE_INDEX="$(mktemp)"
+    if ! curl -fsSL https://nodejs.org/dist/index.tab -o "$NODE_INDEX"; then
+      rm -f -- "$NODE_INDEX"
+      die 'Could not download the official Node.js version list.'
+    fi
+    NODE_VERSION="$(awk 'NR>1 && $1 ~ /^v22\./ {print $1; exit}' "$NODE_INDEX")"
+    rm -f -- "$NODE_INDEX"
     [[ "$NODE_VERSION" =~ ^v22\.[0-9]+\.[0-9]+$ ]] || die 'Could not find an official Node.js 22 release.'
     NODE_ARCHIVE="node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
     NODE_URL="https://nodejs.org/dist/${NODE_VERSION}"
