@@ -243,6 +243,13 @@ async function route(request, response) {
     response.end(body);
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/assets/connecso-mark-pair.png') {
+    const body = await readFile(path.join(PUBLIC, 'assets/connecso-mark-pair.png'));
+    headers(response, 'image/png');
+    response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'public, max-age=86400' });
+    response.end(body);
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/assets/login.css') {
     const body = await readFile(path.join(PUBLIC, 'login.css'));
     headers(response, 'text/css; charset=utf-8');
