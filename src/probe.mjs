@@ -1,0 +1,341 @@
+import dns from 'node:dns/promises';
+import { createServer, connect } from 'node:net';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { performance } from 'node:perf_hooks';
+import { buildXrayBatchConfig, buildXrayConfig, isPublicAddress, toPanelOutbound } from './vless.mjs';
+
+const execFileAsync = promisify(execFile);
+const XRAY = process.env.XRAY_BIN || '/usr/local/x-ui/bin/xray-linux-amd64';
+const SERVICE_TARGETS = [
+  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/' },
+  { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
+  { id: 'instagram', name: 'Instagram', url: 'https://www.instagram.com/robots.txt' },
+  { id: 'telegram', name: 'Telegram', url: 'https://telegram.org/' },
+];
+const RTT_TARGET = 'https://www.youtube.com/generate_204';
+
+export async function publicAddresses(host) {
+  const literal = host.replace(/^\[|\]$/g, '');
+  if (/^[\d.]+$/.test(literal) || literal.includes(':')) {
+    return isPublicAddress(literal) ? [literal] : [];
+  }
+  const values = await dns.lookup(literal, { all: true, verbatim: false });
+  const addresses = [...new Set(values.map((item) => item.address))];
+  return addresses.length && addresses.every(isPublicAddress) ? addresses : [];
+}
+
+export async function geoMap(addresses) {
+  const countries = {};
+  const unique = [...new Set(addresses)];
+  for (let offset = 0; offset < unique.length; offset += 100) {
+    try {
+      const response = await fetch('http://ip-api.com/batch?fields=status,query,country,countryCode', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'user-agent': 'VlessAudit/2.0' },
+        body: JSON.stringify(unique.slice(offset, offset + 100)),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) continue;
+      const values = await response.json();
+      for (const item of values) {
+        if (item.status === 'success') countries[item.query] = item.country || '';
+      }
+    } catch {}
+  }
+  return countries;
+}
+
+async function checkService(target, port) {
+  try {
+    const result = await execFileAsync('curl', [
+      '-sS', '-o', '/dev/null', '--connect-timeout', '4', '--max-time', '7',
+      '-x', 'socks5h://127.0.0.1:' + port,
+      '-w', '%{http_code}\t%{time_total}', target.url,
+    ], { timeout: 8000, maxBuffer: 1024 * 1024 });
+    const [rawStatus, rawSeconds] = String(result.stdout).trim().split('\t');
+    const status = Number(rawStatus) || 0;
+    const seconds = Number(rawSeconds);
+    return {
+      id: target.id,
+      name: target.name,
+      ok: status >= 200 && status < 400,
+      status,
+      ms: Number.isFinite(seconds) ? Math.round(seconds * 1000) : null,
+    };
+  } catch {
+    return { id: target.id, name: target.name, ok: false, status: 0, ms: null };
+  }
+}
+
+async function reservePort() {
+  const listener = createServer();
+  await new Promise((resolve, reject) => {
+    listener.once('error', reject);
+    listener.listen(0, '127.0.0.1', resolve);
+  });
+  const port = listener.address().port;
+  await new Promise((resolve) => listener.close(resolve));
+  return port;
+}
+
+function waitForSocks(child, port, timeoutMs = 3500) {
+  return new Promise((resolve, reject) => {
+    const started = Date.now();
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      child.off('exit', onExit);
+      error ? reject(error) : resolve();
+    };
+    const onExit = () => finish(new Error('Xray outbound راه نیفتاد.'));
+    child.once('exit', onExit);
+    const timer = setInterval(() => {
+      if (Date.now() - started > timeoutMs) return finish(new Error('مهلت راه‌اندازی Xray تمام شد.'));
+      const socket = connect({ host: '127.0.0.1', port });
+      socket.setTimeout(200);
+      socket.once('connect', () => { socket.destroy(); finish(); });
+      socket.once('error', () => socket.destroy());
+    }, 100);
+  });
+}
+
+function resultBase(config, countries) {
+  return {
+    name: config.name,
+    endpoint: config.host + ':' + config.port,
+    security: config.security.toUpperCase(),
+    outbound: toPanelOutbound(config),
+    ip: '',
+    country: '',
+    ok: false,
+    uri: config.uri,
+  };
+}
+
+async function testThroughSocks(config, base, port, options = {}) {
+  const checkExit = options.checkExit !== false;
+  const serviceIds = Array.isArray(options.serviceIds) ? new Set(options.serviceIds) : options.checkServices === false ? new Set() : new Set(SERVICE_TARGETS.map((item) => item.id));
+  try {
+    const started = performance.now();
+    const result = await execFileAsync('curl', [
+      '-sS', '-o', '/dev/null', '--connect-timeout', '5', '--max-time', '9',
+      '-x', 'socks5h://127.0.0.1:' + port,
+      '-w', '%{http_code}\t%{time_connect}\t%{time_appconnect}\t%{time_starttransfer}',
+      RTT_TARGET,
+    ], { timeout: 10500, maxBuffer: 1024 * 1024 });
+    const [statusRaw, proxyRaw, tlsRaw, firstByteRaw] = String(result.stdout).trim().split('\t').map(Number);
+    const proxyConnectMs = Number.isFinite(proxyRaw) ? Math.round(proxyRaw * 1000) : null;
+    const tlsConnectMs = Number.isFinite(tlsRaw) ? Math.round(tlsRaw * 1000) : null;
+    const firstByteMs = Number.isFinite(firstByteRaw) ? Math.round(firstByteRaw * 1000) : null;
+    base.httpStatus = Number.isFinite(statusRaw) ? statusRaw : 0;
+    base.timings = {
+      proxyConnectMs,
+      tlsViaOutboundMs: proxyConnectMs !== null && tlsConnectMs !== null ? Math.max(0, tlsConnectMs - proxyConnectMs) : null,
+      firstByteMs,
+    };
+    // Curl's time_starttransfer is the end-to-end HTTPS response time through Xray.
+    // Keep the display honest: this is an HTTP RTT/TTFB measurement, not ICMP ping.
+    base.ms = firstByteMs ?? Math.round(performance.now() - started);
+    if (checkExit) {
+      const ipResult = await execFileAsync('curl', [
+        '-fsS', '--connect-timeout', '5', '--max-time', '9',
+        '-x', 'socks5h://127.0.0.1:' + port, 'https://api.ipify.org',
+      ], { timeout: 10500, maxBuffer: 1024 * 1024 });
+      base.exit = String(ipResult.stdout).trim();
+    }
+    base.ok = base.httpStatus >= 200 && base.httpStatus < 400 && (!checkExit || Boolean(base.exit));
+    if (!base.ok) base.error = 'پاسخ HTTPS از مسیر VLESS دریافت نشد.';
+    else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port)));
+  } catch (error) {
+    base.error = error.message || 'اتصال VLESS/HTTPS ناموفق بود.';
+  }
+  return base;
+}
+
+async function stopXray(child, directory) {
+  if (child && child.exitCode === null) {
+    child.kill('SIGTERM');
+    await Promise.race([
+      new Promise((resolve) => child.once('exit', resolve)),
+      new Promise((resolve) => setTimeout(resolve, 900)),
+    ]);
+    if (child.exitCode === null) child.kill('SIGKILL');
+  }
+  await rm(directory, { recursive: true, force: true });
+}
+
+export async function testOne(config, countries, options = {}) {
+  const base = resultBase(config, countries);
+  let addresses;
+  try {
+    addresses = await publicAddresses(config.host);
+  } catch {
+    base.error = 'DNS مقصد پاسخ نداد.';
+    return base;
+  }
+  if (!addresses.length) {
+    base.error = 'IP عمومی برای مقصد پیدا نشد.';
+    return base;
+  }
+  base.ip = addresses.slice().sort()[0];
+  base.country = countries[base.ip] || '';
+  const port = await reservePort();
+  const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-'));
+  let child;
+  try {
+    const configPath = path.join(directory, 'config.json');
+    await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
+    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    await waitForSocks(child, port);
+    return await testThroughSocks(config, base, port, options);
+  } catch (error) {
+    base.error = error.message || 'Xray outbound راه نیفتاد.';
+    return base;
+  } finally {
+    await stopXray(child, directory);
+  }
+}
+
+export async function testBatch(configs, countries, options = {}) {
+  const results = new Array(configs.length);
+  const entries = [];
+  await Promise.all(configs.map(async (config, index) => {
+    const base = resultBase(config, countries);
+    try {
+      const addresses = await publicAddresses(config.host);
+      if (!addresses.length) {
+        base.error = 'IP عمومی برای مقصد پیدا نشد.';
+        results[index] = base;
+        return;
+      }
+      base.ip = addresses.slice().sort()[0];
+      base.country = countries[base.ip] || '';
+      // Validate transport/security independently so one malformed config does not fail the batch.
+      buildXrayConfig(config, 1);
+      entries.push({ config, base, index });
+    } catch (error) {
+      base.error = error.message || 'DNS یا تنظیمات کانفیگ معتبر نیست.';
+      results[index] = base;
+    }
+  }));
+  if (!entries.length) return results;
+
+  const ports = await Promise.all(entries.map(() => reservePort()));
+  const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-batch-'));
+  let child;
+  try {
+    const configPath = path.join(directory, 'config.json');
+    await writeFile(configPath, JSON.stringify(buildXrayBatchConfig(entries.map((item) => item.config), ports)));
+    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    await Promise.all(ports.map((port) => waitForSocks(child, port)));
+    const checked = await Promise.all(entries.map((item, index) => testThroughSocks(item.config, item.base, ports[index], options)));
+    checked.forEach((result, index) => { results[entries[index].index] = result; });
+  } catch (error) {
+    for (const item of entries) {
+      if (!results[item.index]) {
+        item.base.error = error.message || 'اجرای دستهٔ Xray ناموفق بود.';
+        results[item.index] = item.base;
+      }
+    }
+  } finally {
+    await stopXray(child, directory);
+  }
+  return results;
+}
+
+export async function testDownload(config) {
+  const port = await reservePort();
+  const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-speed-'));
+  let child;
+  try {
+    const configPath = path.join(directory, 'config.json');
+    const headersPath = path.join(directory, 'response-headers.txt');
+    await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
+    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    await waitForSocks(child, port);
+    const args = [
+      '-sS', '-L', '--connect-timeout', '12', '--max-time', '22',
+      '-D', headersPath,
+      '-x', 'socks5h://127.0.0.1:' + port,
+      'https://proof.ovh.net/files/1Gb.dat',
+    ];
+    let bytes = 0;
+    let status = 0;
+    let errorText = '';
+    let firstByteAt = 0;
+    let measuredSeconds = 0;
+    let measurementEnded = false;
+    let durationTimer;
+    const startedAt = performance.now();
+    await new Promise((resolve, reject) => {
+      const download = spawn('curl', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      let settled = false;
+      const finish = (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(durationTimer);
+        if (error) reject(error); else resolve();
+      };
+      const guardTimer = setTimeout(() => {
+        if (download.exitCode === null) download.kill('SIGTERM');
+        finish(new Error('دانلود آزمایشی پس از مهلت اتصال متوقف شد.'));
+      }, 24_000);
+      download.stdout.on('data', (chunk) => {
+        if (!firstByteAt) {
+          firstByteAt = performance.now();
+          durationTimer = setTimeout(() => {
+            measuredSeconds = 5;
+            measurementEnded = true;
+            if (download.exitCode === null) download.kill('SIGTERM');
+          }, 5_000);
+        }
+        if (!measurementEnded) bytes += chunk.length;
+      });
+      download.stderr.on('data', (chunk) => { errorText += chunk.toString(); });
+      download.once('error', (error) => { clearTimeout(guardTimer); finish(error); });
+      download.once('close', async () => {
+        clearTimeout(guardTimer);
+        let headerText = '';
+        try { headerText = await readFile(headersPath, 'utf8'); } catch {}
+        const headerStatuses = [...headerText.matchAll(/^HTTP\/\S+\s+(\d{3})/gm)];
+        status = headerStatuses.length ? Number(headerStatuses.at(-1)[1]) : 0;
+        if (firstByteAt && !measuredSeconds) measuredSeconds = Math.max(0, (performance.now() - firstByteAt) / 1000);
+        finish();
+      });
+    });
+    const seconds = measuredSeconds || Math.max(0, (performance.now() - startedAt) / 1000);
+    // When the five-second cutoff sends SIGTERM, curl may exit before flushing its
+    // final status metadata. A substantial streamed body confirms the test payload;
+    // tiny denial/error bodies do not pass this threshold.
+    if (!status && bytes > 1_048_576) status = 200;
+    return {
+      ok: status === 200 && bytes > 0 && seconds > 0,
+      status: Number.isFinite(status) ? status : 0,
+      bytes,
+      seconds: Math.round(seconds * 100) / 100,
+      megabytesPerSecond: seconds > 0 ? Math.round((bytes / 1024 / 1024 / seconds) * 100) / 100 : 0,
+      maxBytes: 1_073_741_824,
+      error: status && status !== 200
+        ? `سرور تست پاسخ HTTP ${status} داد.`
+        : bytes === 0
+          ? errorText || 'در مهلت اتصال داده‌ای از مسیر این کانفیگ دریافت نشد.'
+          : errorText,
+    };
+  } finally {
+    if (child && child.exitCode === null) {
+      child.kill('SIGTERM');
+      await Promise.race([
+        new Promise((resolve) => child.once('exit', resolve)),
+        new Promise((resolve) => setTimeout(resolve, 900)),
+      ]);
+      if (child.exitCode === null) child.kill('SIGKILL');
+    }
+    await rm(directory, { recursive: true, force: true });
+  }
+}

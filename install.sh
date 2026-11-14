@@ -1,0 +1,263 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_NAME="vless-audit"
+APP_DIR="/opt/vless-audit"
+CONFIG_DIR="/etc/vless-audit"
+DATA_DIR="/var/lib/vless-audit"
+STATE_FILE="$DATA_DIR/install-state.env"
+SERVICE_FILE="/etc/systemd/system/vless-audit.service"
+ENV_FILE="$CONFIG_DIR/panel.env"
+CERTBOT="/usr/bin/certbot"
+ACTIVE_HTTP_SERVICES=()
+
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+save_state() {
+  install -d -m 0700 "$DATA_DIR"
+  {
+    printf 'STAGE=%q\n' "${STAGE:-0}"
+    printf 'DOMAIN=%q\n' "${DOMAIN:-}"
+    printf 'PORT=%q\n' "${PORT:-}"
+    printf 'ADMIN_EMAIL=%q\n' "${ADMIN_EMAIL:-}"
+    printf 'PANEL_PASSWORD=%q\n' "${PANEL_PASSWORD:-}"
+    printf 'NODE_BIN=%q\n' "${NODE_BIN:-}"
+    printf 'XRAY_BIN=%q\n' "${XRAY_BIN:-}"
+  } > "$STATE_FILE.tmp"
+  chmod 0600 "$STATE_FILE.tmp"
+  mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+}
+ask_value() {
+  local name="$1" prompt="$2" default="$3" current="${!1:-}" answer
+  if [[ -n "$current" ]]; then
+    read -r -p "$prompt [$current]: " answer
+    printf -v "$name" '%s' "${answer:-$current}"
+  else
+    read -r -p "$prompt [$default]: " answer
+    printf -v "$name" '%s' "${answer:-$default}"
+  fi
+}
+port_listening() {
+  command -v ss >/dev/null 2>&1 && ss -H -ltn "sport = :$1" | grep -q .
+}
+restore_http_services() {
+  local service
+  for service in "${ACTIVE_HTTP_SERVICES[@]:-}"; do
+    [[ -n "$service" ]] || continue
+    systemctl start "$service" >/dev/null 2>&1 || printf 'Warning: could not restart %s; start it manually.\n' "$service" >&2
+  done
+  ACTIVE_HTTP_SERVICES=()
+}
+trap 'restore_http_services' EXIT INT TERM
+
+[[ "${EUID:-$(id -u)}" -eq 0 ]] || die 'Run this installer as root.'
+command -v apt-get >/dev/null 2>&1 || die 'This installer currently supports Ubuntu and Debian.'
+SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+[[ -f "$SOURCE_DIR/server.mjs" && -d "$SOURCE_DIR/src" && -d "$SOURCE_DIR/public" ]] || die 'Run install.sh from the extracted project directory.'
+install -d -m 0700 "$DATA_DIR"
+if [[ -r "$STATE_FILE" ]]; then # shellcheck disable=SC1090
+  source "$STATE_FILE"
+fi
+STAGE="${STAGE:-0}"
+
+if (( STAGE < 1 )); then
+  ask_value DOMAIN 'Panel subdomain (must resolve directly to this server)' 'audit.example.com'
+  DOMAIN="${DOMAIN,,}"
+  [[ "$DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ && "$DOMAIN" == *.* && "$DOMAIN" != *..* ]] || die 'Enter a valid DNS hostname.'
+  ask_value PORT 'Panel HTTPS port' '3006'
+  [[ "$PORT" =~ ^[0-9]+$ ]] && (( PORT >= 1 && PORT <= 65535 )) || die 'Port must be between 1 and 65535.'
+  if port_listening "$PORT"; then die "Port $PORT is already in use. Choose a free HTTPS port."; fi
+  ask_value ADMIN_EMAIL "Email for Let's Encrypt certificate notices (optional)" ''
+  PANEL_PASSWORD="${PANEL_PASSWORD:-}"
+  if [[ -z "$PANEL_PASSWORD" ]]; then read -r -s -p 'Admin password (leave empty to generate one): ' PANEL_PASSWORD; printf '\n'; fi
+  [[ -n "$PANEL_PASSWORD" ]] || PANEL_PASSWORD="$(openssl rand -hex 24)"
+  [[ "$PANEL_PASSWORD" =~ ^[A-Za-z0-9._@%+=:,!-]{12,128}$ ]] || die 'Use a 12–128 character password containing only letters, numbers, and . _ @ % + = : , ! -.'
+  STAGE=1; save_state
+else
+  printf 'Resuming installer at saved stage %s for %s:%s.\n' "$STAGE" "$DOMAIN" "$PORT"
+fi
+
+if (( STAGE < 2 )); then
+  printf '\n[1/5] Installing required system packages…\n'
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git
+  CERTBOT="$(command -v certbot)"
+  STAGE=2; save_state
+fi
+
+if (( STAGE < 3 )); then
+  printf '\n[2/5] Preparing Node.js…\n'
+  NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
+  NODE_MAJOR=0
+  if [[ -n "$NODE_BIN" ]]; then NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)"; fi
+  if (( NODE_MAJOR < 18 )); then
+    MACHINE="$(uname -m)"
+    case "$MACHINE" in x86_64|amd64) NODE_ARCH=x64 ;; aarch64|arm64) NODE_ARCH=arm64 ;; *) die "Unsupported CPU architecture: $MACHINE" ;; esac
+    NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.tab | awk 'NR>1 && $1 ~ /^v22\./ {print $1; exit}')"
+    [[ "$NODE_VERSION" =~ ^v22\.[0-9]+\.[0-9]+$ ]] || die 'Could not find an official Node.js 22 release.'
+    NODE_ARCHIVE="node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
+    NODE_URL="https://nodejs.org/dist/${NODE_VERSION}"
+    TEMP_DIR="$(mktemp -d)"
+    curl -fsSL "$NODE_URL/$NODE_ARCHIVE" -o "$TEMP_DIR/$NODE_ARCHIVE"
+    curl -fsSL "$NODE_URL/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+    (cd "$TEMP_DIR" && grep "  $NODE_ARCHIVE$" SHASUMS256.txt | sha256sum -c -)
+    install -d -m 0755 "$APP_DIR/runtime"
+    tar -xJf "$TEMP_DIR/$NODE_ARCHIVE" -C "$APP_DIR/runtime"
+    NODE_BIN="$APP_DIR/runtime/node-${NODE_VERSION}-linux-${NODE_ARCH}/bin/node"
+    rm -rf -- "$TEMP_DIR"
+  fi
+  NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])')"
+  (( NODE_MAJOR >= 18 )) || die 'Node.js 18 or newer is required.'
+  STAGE=3; save_state
+fi
+
+if (( STAGE < 4 )); then
+  printf '\n[3/5] Locating Xray without changing any existing Xray service…\n'
+  XRAY_BIN="${XRAY_BIN:-}"
+  if [[ -z "$XRAY_BIN" ]]; then
+    for candidate in /usr/local/x-ui/bin/xray-linux-amd64 /usr/local/x-ui/bin/xray /usr/local/bin/xray /usr/bin/xray; do
+      if [[ -x "$candidate" ]]; then XRAY_BIN="$candidate"; break; fi
+    done
+  fi
+  if [[ -z "$XRAY_BIN" ]]; then
+    TEMP_XRAY="$(mktemp)"
+    curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o "$TEMP_XRAY"
+    bash "$TEMP_XRAY" install --no-update-service
+    rm -f -- "$TEMP_XRAY"
+    for candidate in /usr/local/bin/xray /usr/bin/xray; do if [[ -x "$candidate" ]]; then XRAY_BIN="$candidate"; break; fi; done
+  fi
+  [[ -x "$XRAY_BIN" ]] || die 'Xray executable was not found or installed.'
+  STAGE=4; save_state
+fi
+
+if (( STAGE < 5 )); then
+  printf '\n[4/5] Requesting TLS certificate for %s…\n' "$DOMAIN"
+  command -v getent >/dev/null 2>&1 || die 'getent is required to verify DNS.'
+  RESOLVED="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u | head -n1 || true)"
+  PUBLIC_IP="$(curl -4fsS --max-time 8 https://api.ipify.org || true)"
+  [[ -n "$RESOLVED" && -n "$PUBLIC_IP" && "$RESOLVED" == "$PUBLIC_IP" ]] || die "DNS for $DOMAIN must resolve directly to this server's public IPv4 ($PUBLIC_IP); fix DNS and rerun the installer."
+  if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Domains: $DOMAIN"; then
+    # HTTP-01 standalone needs inbound TCP/80. Stop only known web services that
+    # are both active and currently listening on port 80; remember and restore them.
+    if port_listening 80; then
+      for service in apache2 nginx caddy lighttpd; do
+        if systemctl is-active --quiet "$service" && systemctl list-units --type=service --state=active --no-legend | awk '{print $1}' | grep -Fxq "$service.service"; then
+          ACTIVE_HTTP_SERVICES+=("$service")
+        fi
+      done
+      if ((${#ACTIVE_HTTP_SERVICES[@]})); then
+        printf 'Temporarily stopping: %s (HTTP-01 needs TCP/80).\n' "${ACTIVE_HTTP_SERVICES[*]}"
+        for service in "${ACTIVE_HTTP_SERVICES[@]}"; do systemctl stop "$service"; done
+      else
+        die 'TCP/80 is occupied by an unrecognized service. Free port 80, then rerun; no service was stopped.'
+      fi
+    fi
+    if [[ -n "$ADMIN_EMAIL" ]]; then
+      "$CERTBOT" certonly --standalone --preferred-challenges http --non-interactive --agree-tos --email "$ADMIN_EMAIL" -d "$DOMAIN"
+    else
+      "$CERTBOT" certonly --standalone --preferred-challenges http --non-interactive --agree-tos --register-unsafely-without-email -d "$DOMAIN"
+    fi
+    restore_http_services
+  fi
+  CERT_LIVE="/etc/letsencrypt/live/$DOMAIN"
+  [[ -s "$CERT_LIVE/fullchain.pem" && -s "$CERT_LIVE/privkey.pem" ]] || die 'Certificate files were not created.'
+  STAGE=5; save_state
+fi
+
+printf '\n[5/5] Installing/updating the panel files and service…\n'
+if ! getent group "$APP_NAME" >/dev/null; then groupadd --system "$APP_NAME"; fi
+if ! id "$APP_NAME" >/dev/null 2>&1; then useradd --system --gid "$APP_NAME" --home-dir "$DATA_DIR" --shell /usr/sbin/nologin "$APP_NAME"; fi
+install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$CONFIG_DIR"
+install -d -o "$APP_NAME" -g "$APP_NAME" -m 0750 "$DATA_DIR" "$DATA_DIR/results"
+for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$file" "$APP_DIR/$file"; done
+for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
+for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done
+
+CERT_LIVE="/etc/letsencrypt/live/$DOMAIN"
+install -o root -g "$APP_NAME" -m 0640 "$CERT_LIVE/fullchain.pem" "$CONFIG_DIR/server.crt"
+install -o root -g "$APP_NAME" -m 0640 "$CERT_LIVE/privkey.pem" "$CONFIG_DIR/server.key"
+umask 077
+if [[ ! -s "$ENV_FILE" ]]; then
+  cat > "$ENV_FILE" <<EOF
+HOST=0.0.0.0
+PORT=$PORT
+PANEL_PASSWORD=$PANEL_PASSWORD
+XRAY_BIN=$XRAY_BIN
+CERT_FILE=$CONFIG_DIR/server.crt
+KEY_FILE=$CONFIG_DIR/server.key
+RESULTS_DIR=$DATA_DIR/results
+EOF
+else
+  sed -i "s|^PORT=.*|PORT=$PORT|; s|^XRAY_BIN=.*|XRAY_BIN=$XRAY_BIN|" "$ENV_FILE"
+fi
+chown root:"$APP_NAME" "$ENV_FILE"; chmod 0640 "$ENV_FILE"
+
+cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=VLESS outbound checker
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=simple
+User=$APP_NAME
+Group=$APP_NAME
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+ExecStart=$NODE_BIN $APP_DIR/server.mjs
+Restart=on-failure
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$DATA_DIR /tmp
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TasksMax=128
+LimitNOFILE=8192
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 0644 "$SERVICE_FILE"
+
+# Certbot renewal hooks briefly free TCP/80 and then refresh the panel's copy.
+install -d -m 0755 /etc/letsencrypt/renewal-hooks/pre /etc/letsencrypt/renewal-hooks/post /etc/letsencrypt/renewal-hooks/deploy
+cat > /etc/letsencrypt/renewal-hooks/pre/20-vless-audit <<'EOF'
+#!/usr/bin/env bash
+set -e
+STATE=/run/vless-audit-stopped-web-services
+: > "$STATE"
+ss -H -ltn 'sport = :80' | grep -q . || exit 0
+for svc in apache2 nginx caddy lighttpd; do
+  if systemctl is-active --quiet "$svc" && systemctl list-units --type=service --state=active --no-legend | awk '{print $1}' | grep -Fxq "$svc.service"; then
+    echo "$svc" >> "$STATE"
+    systemctl stop "$svc"
+  fi
+done
+EOF
+cat > /etc/letsencrypt/renewal-hooks/post/20-vless-audit <<'EOF'
+#!/usr/bin/env bash
+set -e
+STATE=/run/vless-audit-stopped-web-services
+if [[ -r "$STATE" ]]; then while IFS= read -r svc; do [[ -n "$svc" ]] && systemctl start "$svc" || true; done < "$STATE"; rm -f "$STATE"; fi
+EOF
+cat > /etc/letsencrypt/renewal-hooks/deploy/20-vless-audit <<EOF
+#!/usr/bin/env bash
+set -e
+[[ "\${RENEWED_LINEAGE:-}" == "/etc/letsencrypt/live/$DOMAIN" ]] || exit 0
+install -o root -g $APP_NAME -m 0640 "\$RENEWED_LINEAGE/fullchain.pem" "$CONFIG_DIR/server.crt"
+install -o root -g $APP_NAME -m 0640 "\$RENEWED_LINEAGE/privkey.pem" "$CONFIG_DIR/server.key"
+systemctl try-restart $APP_NAME.service
+EOF
+chmod 0755 /etc/letsencrypt/renewal-hooks/{pre,post,deploy}/20-vless-audit
+
+systemctl daemon-reload
+systemctl enable --now "$APP_NAME.service"
+systemctl restart "$APP_NAME.service"
+STAGE=6; save_state
+printf '\nInstallation complete: https://%s:%s/\n' "$DOMAIN" "$PORT"
+printf 'Login user: admin\nAdmin password: %s\n' "$PANEL_PASSWORD"
+printf 'A rerun will resume from the saved stage and preserve results and password.\n'
+printf 'Remove %s only after confirming the panel works and the password is saved.\n' "$STATE_FILE"

@@ -1,0 +1,24 @@
+# Secrets and local/server state
+.env
+.env.*
+!.env.example
+panel.env
+*.pem
+*.key
+*.crt
+certs/
+data/
+results/
+*.db
+*.sqlite*
+*.log
+*.bak-*
+
+# Local tooling and generated artifacts
+node_modules/
+.DS_Store
+Thumbs.db
+previous-app-3006.py
+previous-service.unit
+mockups/*.png
+

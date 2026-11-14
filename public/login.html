@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#080c10">
+  <title>Sign in · Connecso Route Audit</title>
+  <link rel="stylesheet" href="/assets/login.css">
+  <script src="/assets/login.js" defer></script>
+</head>
+<body>
+  <main class="login-shell">
+    <header class="login-top"><a class="brand" href="/login"><span class="brand-mark"><i></i><i></i><i></i></span><span><strong>Connecso</strong><small>ROUTE AUDIT</small></span></a><button id="language-toggle" type="button">EN</button></header>
+    <section class="login-card">
+      <div class="login-symbol" aria-hidden="true">↗</div>
+      <p class="eyebrow" data-fa="پنل خصوصی" data-en="PRIVATE WORKSPACE">پنل خصوصی</p>
+      <h1 data-fa="خوش برگشتی" data-en="Welcome back">خوش برگشتی</h1>
+      <p class="subtext" data-fa="برای ادامه وارد حساب پنل شو." data-en="Sign in to continue to your audit workspace.">برای ادامه وارد حساب پنل شو.</p>
+      <p id="login-error" class="login-error" role="alert" hidden data-fa="نام کاربری یا رمز عبور درست نیست. دوباره تلاش کن." data-en="That username or password did not match. Try again.">نام کاربری یا رمز عبور درست نیست. دوباره تلاش کن.</p>
+      <form action="/api/login" method="post" autocomplete="on">
+        <label for="username" data-fa="نام کاربری" data-en="Username">نام کاربری</label>
+        <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required value="admin">
+        <label for="password" data-fa="رمز عبور" data-en="Password">رمز عبور</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <label class="remember"><input type="checkbox" name="remember" value="1" checked><span data-fa="۳۰ روز وارد بمان" data-en="Keep me signed in for 30 days">۳۰ روز وارد بمان</span></label>
+        <button class="submit" type="submit" data-fa="ورود به پنل" data-en="Sign in">ورود به پنل</button>
+      </form>
+      <p class="login-note" data-fa="مرورگر می‌تواند رمز را برای ورود بعدی ذخیره کند." data-en="Your browser can save this password for next time.">مرورگر می‌تواند رمز را برای ورود بعدی ذخیره کند.</p>
+    </section>
+    <footer>Connecso Route Audit <span>·</span> <span data-fa="دسترسی محافظت‌شده" data-en="Protected access">دسترسی محافظت‌شده</span></footer>
+  </main>
+</body>
+</html>
