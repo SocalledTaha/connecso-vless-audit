@@ -210,6 +210,7 @@ exec /usr/bin/env bash /usr/local/lib/connecso-tools/manage.sh "$@"
 EOF
 chmod 0755 /usr/local/bin/ConnecsoTools
 ln -sf /usr/local/bin/ConnecsoTools /usr/local/bin/connecsotools
+ln -sf /usr/local/bin/ConnecsoTools /usr/local/bin/CONNECSOTOOLS
 
 CERT_LIVE="/etc/letsencrypt/live/$DOMAIN"
 install -o root -g "$APP_NAME" -m 0640 "$CERT_LIVE/fullchain.pem" "$CONFIG_DIR/server.crt"
