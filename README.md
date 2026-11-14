@@ -27,7 +27,7 @@ The panel is export-only: it does not write outbounds, clients, or routing rules
 Clone this project on the Ubuntu/Debian target server and run:
 
 ```bash
-git clone https://github.com/imcalledTaha/connecso-vless-audit.git vless-audit
+git clone https://github.com/SocalledTaha/connecso-vless-audit.git vless-audit
 cd vless-audit
 sudo bash install.sh
 ```
