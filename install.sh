@@ -201,16 +201,10 @@ for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$
 for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done
 if [[ -d "$SOURCE_DIR/public/assets" ]]; then
-  for file in "$SOURCE_DIR"/public/assets/*; do
-    [[ -f "$file" ]] || continue
-    install -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/public/assets/$(basename "$file")"
-  done
-fi
-if [[ -d "$SOURCE_DIR/public/assets" ]]; then
-  for file in "$SOURCE_DIR"/public/assets/*; do
-    [[ -f "$file" ]] || continue
-    install -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/public/assets/$(basename "$file")"
-  done
+  while IFS= read -r -d '' file; do
+    relative="${file#"$SOURCE_DIR/public/"}"
+    install -D -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/public/$relative"
+  done < <(find "$SOURCE_DIR/public/assets" -type f -print0)
 fi
 
 install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
