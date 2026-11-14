@@ -36,7 +36,7 @@ The installer asks for the panel hostname, HTTPS port, optional certificate cont
 
 To update an installation, pull the new project version in the cloned directory and rerun `sudo bash install.sh` there. The saved admin password and audit results are preserved.
 
-The installer will not continue with certificate issuance unless DNS resolves to that server's public IPv4. The registrar or DNS provider must not proxy/redirect the hostname during HTTP-01 issuance.
+The installer will not continue with certificate issuance unless at least one DNS A record matches that server's public IPv4. Multiple A records are allowed, but an extra proxy/CDN address is not treated as proof that the origin is reachable. The registrar or DNS provider must not proxy/redirect the hostname during HTTP-01 issuance.
 
 If an installation stops at a stage, run `git pull` in the cloned directory and rerun `sudo bash install.sh`. Completed stages are saved, so it resumes without repeating successful setup steps.
 

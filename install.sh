@@ -138,9 +138,13 @@ fi
 if (( STAGE < 5 )); then
   printf '\n[4/5] Requesting TLS certificate for %s…\n' "$DOMAIN"
   command -v getent >/dev/null 2>&1 || die 'getent is required to verify DNS.'
-  RESOLVED="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u | head -n1 || true)"
+  RESOLVED_V4="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u || true)"
   PUBLIC_IP="$(curl -4fsS --max-time 8 https://api.ipify.org || true)"
-  [[ -n "$RESOLVED" && -n "$PUBLIC_IP" && "$RESOLVED" == "$PUBLIC_IP" ]] || die "DNS for $DOMAIN must resolve directly to this server's public IPv4 ($PUBLIC_IP); fix DNS and rerun the installer."
+  [[ -n "$RESOLVED_V4" && -n "$PUBLIC_IP" ]] || die "Could not verify DNS A records and this server's public IPv4. Check DNS/network access, then rerun the installer."
+  if ! grep -Fxq -- "$PUBLIC_IP" <<< "$RESOLVED_V4"; then
+    printf 'Resolved IPv4 addresses for %s:\n%s\n' "$DOMAIN" "$RESOLVED_V4" >&2
+    die "None of those A records matches this server's public IPv4 ($PUBLIC_IP). Point an A record directly to this server and rerun."
+  fi
   if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Domains: $DOMAIN"; then
     # HTTP-01 standalone needs inbound TCP/80. Stop only known web services that
     # are both active and currently listening on port 80; remember and restore them.
