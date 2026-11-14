@@ -34,7 +34,7 @@ sudo bash install.sh
 
 The installer asks for the panel hostname, HTTPS port, optional certificate contact email, and admin password. It obtains a Let's Encrypt certificate, installs renewal hooks, creates an unprivileged service account and systemd unit, and prints the final URL and login. If interrupted, rerun the same script from the same cloned directory. It resumes from the saved stage in `/var/lib/vless-audit/install-state.env` and preserves the configured password and saved audit results.
 
-After installation, open the maintenance menu by typing `ConnecsoTools` (or `connecsotools`). It requests administrator access when needed. Running `sudo bash install.sh` again also opens this menu. It can renew or reissue TLS, change the panel domain or HTTPS port, diagnose the service and show recent logs, update from GitHub, restart the panel, and change the admin password. The domain change verifies DNS and obtains the new certificate before switching the panel.
+After installation, open the maintenance menu by typing `ConnecsoTools` (or `connecsotools`). It requests administrator access when needed. Running `sudo bash install.sh` again also opens this menu. It can renew or reissue TLS, change the panel domain or HTTPS port, diagnose the service and show its 40 most recent journal entries, update from GitHub, restart the panel, and change the admin password. Log retention is managed by systemd-journald, not by this project; the menu does not create a separate log archive. The domain change verifies DNS and obtains the new certificate before switching the panel.
 
 The GitHub update option pulls the latest `main` branch and reapplies the panel files. The saved admin password and audit results are preserved.
 
