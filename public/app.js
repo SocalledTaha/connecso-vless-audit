@@ -390,21 +390,21 @@ elements.history.addEventListener('click', async (event) => {
   const editButton = event.target.closest('[data-edit-meta]');
   const jobId = favoriteButton?.dataset.favoriteJob || editButton?.dataset.editMeta;
   if (jobId) {
-    const current = (await api('/api/history')).find((item) => item.id === jobId);
-    if (!current) return;
-    let title = current.title || '';
-    let tags = (current.tags || []).join(', ');
-    let favorite = Boolean(current.favorite);
-    if (favoriteButton) favorite = !favorite;
-    else {
-      const nextTitle = window.prompt(t('titlePrompt'), title);
-      if (nextTitle === null) return;
-      title = nextTitle;
-      const nextTags = window.prompt(t('tagsPrompt'), tags);
-      if (nextTags === null) return;
-      tags = nextTags;
-    }
     try {
+      const current = (await api('/api/history')).find((item) => item.id === jobId);
+      if (!current) return;
+      let title = current.title || '';
+      let tags = (current.tags || []).join(', ');
+      let favorite = Boolean(current.favorite);
+      if (favoriteButton) favorite = !favorite;
+      else {
+        const nextTitle = window.prompt(t('titlePrompt'), title);
+        if (nextTitle === null) return;
+        title = nextTitle;
+        const nextTags = window.prompt(t('tagsPrompt'), tags);
+        if (nextTags === null) return;
+        tags = nextTags;
+      }
       await api(`/api/jobs/${encodeURIComponent(jobId)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title, tags:tags.split(',').map((tag)=>tag.trim()).filter(Boolean), favorite }) });
       await loadHistory();
     } catch (error) { showError(error.message); }
