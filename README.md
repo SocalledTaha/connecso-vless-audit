@@ -1,79 +1,61 @@
-# Connecso Outbound Audit
+# 🧭 Connecso Outbound Audit
 
-A small self-hosted tool for checking VLESS subscription routes and exporting tested TLS/Reality outbounds as a direct JSON array for compatible panels.
+[فارسی](README.fa.md) · **English**
 
-## What it does
+A self-hosted web panel for checking subscription routes and exporting working proxy outbounds as a direct JSON array.
 
-- Reads a subscription URL or pasted text, including Base64 subscriptions.
-- Tests VLESS routes with TLS or Reality, native Shadowsocks links, and Hysteria2 links through Xray; reports HTTPS response time (RTT/TTFB), exit IP, and estimated exit country.
-- Detects each VLESS transport (TCP/Raw, WebSocket, gRPC, HTTPUpgrade, or XHTTP) and identifies Shadowsocks and Hysteria2 transport details.
-- Runs selected HTTPS reachability checks for Gemini, YouTube, Instagram, and Telegram.
-- Checks routes in batches of 10 or 20 using one temporary Xray process per batch; it does not replace or reconfigure any existing Xray service.
-- Saves audit history locally, supports reopening and rescanning prior jobs, and has optional per-route ping and five-second download checks.
-- Filters by protocol and exit country, sorts, finds duplicates, selects routes, validates outbound fields, and copies or downloads a direct JSON array grouped by country or selection.
-- Includes Persian/English, light/dark themes, and a protected admin login.
+## 📚 Contents
+- [✨ Features](#-features)
+- [🧪 How checks work](#-how-checks-work)
+- [🧰 Requirements](#-requirements)
+- [🚀 Install or resume](#-install-or-resume)
+- [⚙️ Manage the panel](#-manage-the-panel)
+- [🔐 Data and security](#-data-and-security)
+- [🗑️ Uninstall](#-uninstall)
 
-The panel is export-only: it does not write outbounds, clients, or routing rules into another panel.
+## ✨ Features
+- Import a subscription URL or paste plain/Base64 configuration text.
+- Test VLESS, Shadowsocks, and Hysteria2 through Xray; identify VLESS transports including TCP, WS, gRPC, HTTPUpgrade, and XHTTP.
+- Review HTTPS RTT, exit IP and country, and reachability checks for Gemini, YouTube, Instagram, and Telegram.
+- Scan batches of 10 or 20 using one temporary Xray process per batch with bounded route concurrency.
+- Filter by country/protocol/service, search, sort, find duplicates, and copy or download country-grouped JSON.
+- Reopen or rescan saved audits, recheck one route or all routes in a country, and run an optional five-second download check.
+- Persian/English UI, light/dark themes, and protected administrator login.
 
-## Requirements
+This tool only audits and exports configurations. It does not modify another panel, existing Xray services, clients, or routing rules.
 
-- Ubuntu or Debian server with root access.
-- A DNS hostname resolving directly to the server's public IPv4 address.
-- Inbound TCP port 80 available briefly for Let's Encrypt HTTP-01 issuance and renewal. If Apache, Nginx, Caddy, or Lighttpd is active on port 80, the installer temporarily stops it and starts it again after issuance. Other services are left alone; free port 80 manually if an unrecognized process owns it.
-- The selected panel HTTPS port (default 3006) open in the server firewall/security group.
-- Xray binary. The installer reuses an existing Xray binary if found; otherwise it installs a standalone binary using the official XTLS installer with service management disabled.
+## 🧪 How checks work
+Each scan batch starts one temporary Xray process with a separate local SOCKS port per route. A bounded worker pool limits active requests to reduce contention. Displayed RTT is HTTPS response time through that route, not ICMP. The separate server-to-destination figure is TCP/TLS connection time measured from the audit server through the route. Service checks measure HTTPS reachability, not account login.
 
-## Install or resume
+## 🧰 Requirements
+- Ubuntu or Debian with root access.
+- A DNS A record pointing directly to the server's public IPv4 during certificate issuance.
+- Port 80 available briefly for Let's Encrypt HTTP-01.
+- The selected HTTPS panel port open in the firewall/security group.
+- Xray. The installer reuses a local binary when available; otherwise it installs a standalone copy without managing existing Xray services.
 
-On Ubuntu/Debian, run this one-line installer as root:
+## 🚀 Install or resume
+Run as root:
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/quick-install.sh)
-```
+    bash <(curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/quick-install.sh)
 
-If logged in as a regular user, use:
+The installer asks for the hostname, HTTPS port, optional certificate email, and admin password. It installs the service and certificate and prints the URL and login. Rerun the same command after an interruption to resume the saved stage.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/quick-install.sh | sudo bash
-```
+## ⚙️ Manage the panel
+After installation, type ConnecsoTools (case-insensitive) to open maintenance, or rerun sudo bash install.sh. The menu can renew or reissue TLS, change the domain or port, diagnose the service, update from GitHub, restart the panel, and change the admin password.
 
-The quick installer clones or updates the project under `/opt/vless-audit/project-source`, then runs the regular installer. Rerunning it resumes an interrupted installation or opens the maintenance menu after setup. It does not overwrite a non-Git directory at that path.
+Updates pull the main branch and reapply app files. Saved results and the admin password remain in the data directory.
 
-The installer asks for the panel hostname, HTTPS port, optional certificate contact email, and admin password. It obtains a Let's Encrypt certificate, installs renewal hooks, creates an unprivileged service account and systemd unit, and prints the final URL and login. If interrupted, rerun the same script from the same cloned directory. It resumes from the saved stage in `/var/lib/vless-audit/install-state.env` and preserves the configured password and saved audit results.
+## 🔐 Data and security
+- Subscription URLs must use HTTPS and resolve to public IPs; local/private destinations are rejected.
+- Results and subscription details are stored locally under /var/lib/vless-audit/results/. Protect server access and backups.
+- The service runs as an unprivileged account with systemd filesystem protections.
+- Download checks run only on request and use four parallel streams for five seconds.
+- systemd-journald manages logs; maintenance displays the latest 40 entries.
 
-After installation, open the maintenance menu by typing `connecsotools`, `ConnecsoTools`, or `CONNECSOTOOLS`. It requests administrator access when needed. Running `sudo bash install.sh` again also opens this menu. It can renew or reissue TLS, change the panel domain or HTTPS port, diagnose the service and show its 40 most recent journal entries, update from GitHub, restart the panel, and change the admin password. Log retention is managed by systemd-journald, not by this project; the menu does not create a separate log archive. Domain and subdomain inputs are normalized to lowercase before saving.
+## 🗑️ Uninstall
+Run:
 
-The GitHub update option pulls the latest `main` branch and reapplies the panel files. The saved admin password and audit results are preserved.
+    sudo bash uninstall.sh
 
-The installer will not continue with certificate issuance unless at least one DNS A record matches that server's public IPv4. Multiple A records are allowed, but an extra proxy/CDN address is not treated as proof that the origin is reachable. The registrar or DNS provider must not proxy/redirect the hostname during HTTP-01 issuance.
-
-If an installation stops at a stage, run `git pull` in the cloned directory and rerun `sudo bash install.sh`. Completed stages are saved, so it resumes without repeating successful setup steps.
-
-## Service operations
-
-```bash
-systemctl status vless-audit
-systemctl restart vless-audit
-journalctl -u vless-audit -n 100 --no-pager
-```
-
-Configuration and TLS copies: `/etc/vless-audit/`
-
-Saved audits: `/var/lib/vless-audit/results/`
-
-Install progress: `/var/lib/vless-audit/install-state.env`
-
-Let's Encrypt renewals update the panel's certificate copies and restart only `vless-audit.service`. The temporary HTTP services stopped for renewal are restored by Certbot's post-hook.
-
-## Uninstall
-
-Run `sudo bash uninstall.sh`. By default, it removes the application and service but keeps `/var/lib/vless-audit` results. Pass `--purge-data` only when you also want the saved results and installer state deleted. It does not remove the TLS certificate, Xray, other panels, or web services.
-
-## Security and resource behavior
-
-- Subscription URLs must use HTTPS and resolve to public IP addresses; local/private targets are rejected.
-- The service runs as an unprivileged `vless-audit` account with systemd filesystem protections.
-- Only one audit job runs at a time. Each 10/20-route batch uses one temporary Xray process, then cleans it up.
-- Download checks are explicit per route and do not run during the initial scan. Each manual check opens four parallel HTTPS downloads through that route's single temporary Xray process and reports their combined average throughput over five seconds.
-- Audit history may contain subscription URLs and config data. Restrict server access and back it up only where appropriate.
-
+Saved audit data is kept by default. Use --purge-data only to also remove results and installer state. The uninstaller leaves Xray, other panels, and web servers alone.
