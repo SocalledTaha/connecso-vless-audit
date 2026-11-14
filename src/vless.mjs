@@ -37,24 +37,82 @@ function decodeBase64(text) {
   return Buffer.from(normalized + '='.repeat((4 - normalized.length % 4) % 4), 'base64').toString('utf8');
 }
 
+function parseXrayOutbound(outbound, index = 0) {
+  if (!outbound || typeof outbound !== 'object') return null;
+  const xrayProtocol = String(outbound.protocol || '').toLowerCase();
+  const protocol = xrayProtocol === 'hysteria' ? 'hysteria2' : xrayProtocol;
+  if (!['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque'].includes(protocol)) return null;
+  const settings = outbound.settings || {};
+  let host = '', port = 0, user = '';
+  const first = settings.vnext?.[0] || settings.servers?.[0] || {};
+  if (protocol === 'wireguard') {
+    const endpoint = settings.peers?.[0]?.endpoint || settings.endpoint || '';
+    const match = String(endpoint).match(/^\[([^\]]+)\]:(\d+)$/) || String(endpoint).match(/^(.+):(\d+)$/);
+    if (match) { host = match[1]; port = Number(match[2]); }
+    else { host = settings.address || ''; port = Number(settings.port || 0); }
+  } else {
+    host = settings.address || first.address || '';
+    port = Number(settings.port || first.port || 0);
+  }
+  if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  const stream = outbound.streamSettings || {};
+  const userRecord = first.users?.[0] || {};
+  user = userRecord.id || userRecord.password || settings.password || '';
+  const uri = 'xray-json:' + encodeURIComponent(JSON.stringify(outbound));
+  return {
+    uri, protocol, host, port, name: String(outbound.tag || `${host}:${port}`),
+    uuid: user, params: { id:user, encryption:userRecord.security || 'auto', alterId:Number(userRecord.alterId || 0) },
+    security: String(stream.security || (protocol === 'wireguard' ? 'WireGuard' : protocol === 'masque' ? 'TLS' : '')),
+    transport: protocol === 'wireguard' ? 'WireGuard / UDP' : protocol === 'masque' ? 'MASQUE / HTTP3' : transportLabel(stream.network || 'tcp'),
+    outbound: structuredClone(outbound), index,
+  };
+}
+
 export function parseSubscription(input) {
   let text = String(input || '').trim();
-  if (!/(?:vless|ss|hysteria2|hy2):\/\//i.test(text) && text.length < 2_500_000) {
+  if (!/(?:vless|vmess|trojan|ss|hysteria2|hy2):\/\//i.test(text) && !/^\s*[\[{]/.test(text) && text.length < 2_500_000) {
     try {
       const decoded = decodeBase64(text);
-      if (/(?:vless|ss|hysteria2|hy2):\/\//i.test(decoded)) text = decoded;
+      if (/(?:vless|vmess|trojan|ss|hysteria2|hy2):\/\//i.test(decoded) || /^\s*[\[{]/.test(decoded)) text = decoded;
     } catch {}
   }
+  try {
+    const document = JSON.parse(text);
+    const outbounds = Array.isArray(document) ? document : Array.isArray(document.outbounds) ? document.outbounds : [document];
+    const parsed = outbounds.map((outbound,index) => parseXrayOutbound(outbound,index)).filter(Boolean);
+    if (parsed.length) return parsed;
+  } catch {}
   const configs = [];
   const seen = new Set();
   for (const line of text.split(/\r?\n/)) {
     const uri = line.trim();
-    if (!/^(?:vless|ss|hysteria2|hy2):\/\//i.test(uri) || seen.has(uri)) continue;
+    if (uri.startsWith('xray-json:')) {
+      try {
+        const config = parseXrayOutbound(JSON.parse(decodeURIComponent(uri.slice('xray-json:'.length))));
+        if (config && !seen.has(uri)) { config.uri = uri; seen.add(uri); configs.push(config); }
+      } catch {}
+      continue;
+    }
+    if (!/^(?:vless|vmess|trojan|ss|hysteria2|hy2):\/\//i.test(uri) || seen.has(uri)) continue;
     seen.add(uri);
     try {
       if (/^ss:\/\//i.test(uri)) {
         const config = parseShadowsocks(uri);
         if (config) configs.push(config);
+        continue;
+      }
+      if (/^vmess:\/\//i.test(uri)) {
+        const body = decodeURIComponent(uri.slice(uri.indexOf('//') + 2).split('#')[0]);
+        const data = JSON.parse(decodeBase64(body));
+        const host = String(data.add || data.address || '');
+        const port = Number(data.port);
+        const id = String(data.id || '');
+        if (!host || !id || !Number.isInteger(port) || port < 1 || port > 65535) continue;
+        const network = String(data.net || data.type || 'tcp').toLowerCase();
+        const security = String(data.security || (data.tls ? 'tls' : 'none')).toLowerCase();
+        const params = { type:network, sni:data.sni || data.host || host, host:data.host || '', path:data.path || '', fp:data.fp || '', alpn:data.alpn || '', alterId:Number(data.aid || 0), encryption:data.scy || 'auto' };
+        const name = decodeURIComponent(uri.split('#')[1] || data.ps || `${host}:${port}`);
+        configs.push({ uri, protocol:'vmess', transport:transportLabel(network), host, port, uuid:id, security, params, name });
         continue;
       }
       const parsed = new URL(uri);
@@ -68,7 +126,6 @@ export function parseSubscription(input) {
       };
       const host = parsed.hostname.replace(/^\[|\]$/g, '');
       const port = Number(parsed.port);
-      const security = getParam('security').toLowerCase();
       if (!host || !port || port < 1 || port > 65535) continue;
       if (parsed.protocol === 'hysteria2:' || parsed.protocol === 'hy2:') {
         const auth = decodeURIComponent(parsed.username || '') + (parsed.password ? ':' + decodeURIComponent(parsed.password) : '');
@@ -81,13 +138,28 @@ export function parseSubscription(input) {
         params.auth = auth;
         params.type = 'hysteria2';
         const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : host + ':' + port;
-        configs.push({ uri, protocol: 'hysteria2', transport: 'Hysteria2 / QUIC', host, port, security: 'tls', params, name });
+        configs.push({ uri, protocol:'hysteria2', transport:'Hysteria2 / QUIC', host, port, security:'tls', params, name });
+        continue;
+      }
+      if (parsed.protocol === 'trojan:') {
+        const password = decodeURIComponent(parsed.username || parsed.password || '');
+        if (!password) continue;
+        const network = getParam('type','network') || 'tcp';
+        const security = getParam('security') || 'tls';
+        const params = Object.fromEntries(parsed.searchParams.entries());
+        params.type = network; params.password = password;
+        params.sni = getParam('sni','serverName','server_name') || host;
+        params.fp = getParam('fp','fingerprint') || 'chrome';
+        params.host = getParam('host'); params.path = getParam('path') || '/';
+        params.serviceName = getParam('serviceName','service_name');
+        const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : host + ':' + port;
+        configs.push({ uri, protocol:'trojan', transport:transportLabel(network), host, port, security, params, name });
         continue;
       }
       const uuid = decodeURIComponent(parsed.username);
-      if (parsed.protocol !== 'vless:' || !uuid || !['tls', 'reality'].includes(security)) continue;
+      const security = getParam('security').toLowerCase();
+      if (parsed.protocol !== 'vless:' || !uuid || !['tls','reality'].includes(security)) continue;
       const params = Object.fromEntries(parsed.searchParams.entries());
-      // Accept the standard Xray URI keys and common aliases emitted by subscription converters.
       params.type = getParam('type', 'network') || 'tcp';
       params.sni = getParam('sni', 'serverName', 'server_name');
       params.fp = getParam('fp', 'fingerprint');
@@ -97,12 +169,11 @@ export function parseSubscription(input) {
       if (security === 'reality' && !params.pbk) continue;
       const name = parsed.hash ? decodeURIComponent(parsed.hash.slice(1)) : host + ':' + port;
       const network = params.type.toLowerCase() === 'raw' ? 'tcp' : params.type.toLowerCase();
-      configs.push({ uri, protocol: 'vless', transport: transportLabel(network), host, port, uuid, security, params, name });
+      configs.push({ uri, protocol:'vless', transport:transportLabel(network), host, port, uuid, security, params, name });
     } catch {}
   }
   return configs;
 }
-
 function parseShadowsocks(uri) {
   const body = uri.slice(uri.indexOf('//') + 2);
   const hashAt = body.indexOf('#');
@@ -152,67 +223,43 @@ function transportLabel(network) {
 }
 
 function buildOutbound(config, tag) {
-  const q = config.params;
+  if (config.outbound) return { ...structuredClone(config.outbound), tag: String(tag || config.outbound.tag || config.name) };
+  const q = config.params || {};
+  const outboundTag = String(tag || config.name || `${config.host}:${config.port}`);
   if (config.protocol === 'shadowsocks') {
     if (q.plugin) throw new Error('این لینک Shadowsocks از plugin استفاده می‌کند و برای تست مستقیم با Xray پشتیبانی نمی‌شود.');
-    return { tag, protocol: 'shadowsocks', settings: { servers: [{ address: config.host, port: config.port, method: q.method, password: q.password }] } };
+    return { tag:outboundTag, protocol:'shadowsocks', settings:{ servers:[{ address:config.host, port:config.port, method:q.method, password:q.password }] } };
   }
   if (config.protocol === 'hysteria2') {
-    const streamSettings = {
-      network: 'hysteria', security: 'tls',
-      tlsSettings: { serverName: q.sni || config.host, allowInsecure: Boolean(q.insecure) },
-      hysteriaSettings: { version: 2, auth: q.auth, udpIdleTimeout: 60 },
-    };
+    const streamSettings = { network:'hysteria', security:'tls', tlsSettings:{ serverName:q.sni || config.host, allowInsecure:Boolean(q.insecure) }, hysteriaSettings:{ version:2, auth:q.auth, udpIdleTimeout:60 } };
     if (q.obfs) {
       if (q.obfs !== 'salamander' || !q.obfsPassword) throw new Error('نوع یا رمز obfuscation این Hysteria2 پشتیبانی نمی‌شود.');
-      streamSettings.finalmask = { udp: [{ type: 'salamander', settings: { password: q.obfsPassword } }] };
+      streamSettings.finalmask = { udp:[{ type:'salamander', settings:{ password:q.obfsPassword } }] };
     }
-    return { tag, protocol: 'hysteria', settings: { version: 2, address: config.host, port: config.port }, streamSettings };
+    return { tag:outboundTag, protocol:'hysteria', settings:{ version:2, address:config.host, port:config.port }, streamSettings };
   }
-  let network = (q.type || 'tcp').toLowerCase();
+  if (!['vless','vmess','trojan'].includes(config.protocol)) throw new Error('این پروتکل در ورودی متنی پشتیبانی نمی‌شود؛ فایل JSON خروجی Xray را وارد کن.');
+  let network = String(q.type || 'tcp').toLowerCase();
   if (network === 'raw') network = 'tcp';
-  if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)) {
-    throw new Error('این نوع انتقال در نسخهٔ فعلی Xray پشتیبانی نمی‌شود.');
-  }
-  const stream = { network, security: config.security };
+  if (!['tcp','ws','grpc','httpupgrade','xhttp'].includes(network)) throw new Error('این نوع انتقال در نسخهٔ فعلی Xray پشتیبانی نمی‌شود.');
+  const security = String(config.security || 'tls').toLowerCase();
+  const stream = { network, security };
   const serverName = q.sni || config.host;
-  const fingerprint = q.fp || 'chrome';
-  if (config.security === 'tls') {
-    stream.tlsSettings = { serverName, allowInsecure: false, fingerprint };
-  } else {
-    stream.realitySettings = {
-      serverName,
-      fingerprint,
-      publicKey: q.pbk,
-      shortId: q.sid || '',
-      spiderX: q.spx || '/',
-    };
-  }
-  if (network === 'ws') {
-    const headers = {};
-    if (q.host) headers.Host = q.host;
-    stream.wsSettings = { path: q.path || '/', headers };
-  } else if (network === 'grpc') {
-    stream.grpcSettings = {
-      serviceName: q.serviceName || q.path || '',
-      authority: q.authority || '',
-    };
-  } else if (network === 'httpupgrade') {
-    stream.httpupgradeSettings = { path: q.path || '/', host: q.host || '' };
-  } else if (network === 'xhttp') {
-    stream.xhttpSettings = { path: q.path || '/', host: q.host || '', mode: q.mode || 'auto' };
-  }
-  if (q.alpn) stream[config.security === 'tls' ? 'tlsSettings' : 'realitySettings'].alpn = q.alpn.split(',');
-  const user = { id: config.uuid, encryption: q.encryption || 'none' };
-  if (q.flow) user.flow = q.flow;
-  return {
-    tag,
-    protocol: 'vless',
-    settings: { vnext: [{ address: config.host, port: config.port, users: [user] }] },
-    streamSettings: stream,
-  };
+  if (security === 'tls') stream.tlsSettings = { serverName, allowInsecure:false, fingerprint:q.fp || 'chrome' };
+  else if (security === 'reality') stream.realitySettings = { serverName, fingerprint:q.fp || 'chrome', publicKey:q.pbk || '', shortId:q.sid || '', spiderX:q.spx || '/' };
+  else if (security !== 'none') throw new Error('نوع رمزنگاری این کانفیگ پشتیبانی نمی‌شود.');
+  if (q.alpn) (security === 'reality' ? stream.realitySettings : stream.tlsSettings).alpn = String(q.alpn).split(',');
+  if (network === 'tcp') stream.tcpSettings = { header:{ type:q.headerType || 'none' } };
+  else if (network === 'ws') stream.wsSettings = { path:q.path || '/', headers:q.host ? { Host:q.host } : {} };
+  else if (network === 'grpc') stream.grpcSettings = { serviceName:q.serviceName || q.path || '', authority:q.authority || '' };
+  else if (network === 'httpupgrade') stream.httpupgradeSettings = { path:q.path || '/', host:q.host || '' };
+  else if (network === 'xhttp') stream.xhttpSettings = { path:q.path || '/', host:q.host || '', mode:q.mode || 'auto' };
+  let settings;
+  if (config.protocol === 'vless') settings = { vnext:[{ address:config.host, port:config.port, users:[{ id:config.uuid, encryption:q.encryption || 'none', ...(q.flow ? {flow:q.flow} : {}) }] }] };
+  else if (config.protocol === 'vmess') settings = { vnext:[{ address:config.host, port:config.port, users:[{ id:config.uuid, alterId:Number(q.alterId || 0), security:q.encryption || 'auto' }] }] };
+  else settings = { servers:[{ address:config.host, port:config.port, password:q.password }] };
+  return { tag:outboundTag, protocol:config.protocol, settings, streamSettings:stream };
 }
-
 export function buildXrayConfig(config, socksPort) {
   const inboundTag = 'probe-in';
   const outboundTag = 'probe-out';
@@ -252,75 +299,5 @@ export function buildXrayBatchConfig(configs, socksPorts) {
 }
 
 export function toPanelOutbound(config, tag = config.name) {
-  const q = config.params;
-  if (config.protocol === 'shadowsocks') {
-    return {
-      tag: String(tag || config.host + ':' + config.port), protocol: 'shadowsocks',
-      settings: { servers: [{ address: config.host, port: config.port, method: q.method, password: q.password }] },
-    };
-  }
-  if (config.protocol === 'hysteria2') {
-    const streamSettings = {
-      network: 'hysteria', security: 'tls',
-      tlsSettings: { serverName: q.sni || config.host, allowInsecure: Boolean(q.insecure) },
-      hysteriaSettings: { version: 2, auth: q.auth, udpIdleTimeout: 60 },
-    };
-    if (q.obfs) {
-      if (q.obfs !== 'salamander' || !q.obfsPassword) throw new Error('نوع یا رمز obfuscation این Hysteria2 پشتیبانی نمی‌شود.');
-      streamSettings.finalmask = { udp: [{ type: 'salamander', settings: { password: q.obfsPassword } }] };
-    }
-    return { tag: String(tag || config.host + ':' + config.port), protocol: 'hysteria', settings: { version: 2, address: config.host, port: config.port }, streamSettings };
-  }
-  let network = (q.type || 'tcp').toLowerCase();
-  if (network === 'raw') network = 'tcp';
-  if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)) {
-    throw new Error('این نوع انتقال برای خروجی پنل پشتیبانی نمی‌شود.');
-  }
-  const outbound = {
-    tag: String(tag || config.host + ':' + config.port),
-    protocol: 'vless',
-    settings: {
-      address: config.host,
-      port: config.port,
-      id: config.uuid,
-      flow: q.flow || '',
-      encryption: q.encryption || 'none',
-    },
-    streamSettings: { network, security: config.security },
-  };
-  const serverName = q.sni || config.host;
-  if (config.security === 'tls') {
-    outbound.streamSettings.tlsSettings = {
-      serverName,
-      fingerprint: q.fp || 'chrome',
-      allowInsecure: false,
-    };
-    if (q.alpn) outbound.streamSettings.tlsSettings.alpn = q.alpn.split(',');
-  } else {
-    outbound.streamSettings.realitySettings = {
-      fingerprint: q.fp || 'chrome',
-      serverName,
-      publicKey: q.pbk,
-      shortId: q.sid || '',
-      spiderX: q.spx || '',
-      mldsa65Verify: q.mldsa65Verify || '',
-    };
-    if (q.alpn) outbound.streamSettings.realitySettings.alpn = q.alpn.split(',');
-  }
-  if (network === 'tcp') {
-    outbound.streamSettings.tcpSettings = { header: { type: q.headerType || 'none' } };
-  } else if (network === 'ws') {
-    outbound.streamSettings.wsSettings = { path: q.path || '/', headers: q.host ? { Host: q.host } : {} };
-  } else if (network === 'grpc') {
-    outbound.streamSettings.grpcSettings = {
-      serviceName: q.serviceName || q.path || '',
-      authority: q.authority || '',
-      multiMode: (q.mode || '').toLowerCase() === 'multi',
-    };
-  } else if (network === 'httpupgrade') {
-    outbound.streamSettings.httpupgradeSettings = { path: q.path || '/', host: q.host || '' };
-  } else if (network === 'xhttp') {
-    outbound.streamSettings.xhttpSettings = { path: q.path || '/', host: q.host || '', mode: q.mode || 'auto' };
-  }
-  return outbound;
+  return buildOutbound(config, String(tag || config.name || `${config.host}:${config.port}`));
 }

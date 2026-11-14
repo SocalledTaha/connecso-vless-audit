@@ -19,6 +19,12 @@ const PASSWORD = process.env.PANEL_PASSWORD || '';
 const MAX_BODY = 2_500_000;
 const CHUNK_SIZE = 12;
 const MAX_CONCURRENT_CHECKS = 20;
+const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
+function filterProtocols(configs, ids) {
+  if (!Array.isArray(ids)) return configs;
+  const selected = new Set(ids.filter((id) => SUPPORTED_PROTOCOL_IDS.has(String(id).toLowerCase())).map((id) => String(id).toLowerCase()));
+  return configs.filter((config) => selected.has(config.protocol));
+}
 const jobs = await loadJobs(RESULTS);
 let activeJob = null;
 const sessions = new Map();
@@ -153,6 +159,9 @@ function summary(job) {
   return {
     id: job.id,
     created: job.created,
+    title: job.title || '',
+    tags: Array.isArray(job.tags) ? job.tags : [],
+    favorite: Boolean(job.favorite),
     total: job.total,
     available: job.available,
     offset: job.offset,
@@ -181,6 +190,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     batchSize,
     checkExit: scanOptions.checkExit !== false,
     serviceIds: Array.isArray(scanOptions.serviceIds) ? scanOptions.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
+    protocolIds: Array.isArray(scanOptions.protocolIds) ? scanOptions.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)) : [...SUPPORTED_PROTOCOL_IDS],
     done: 0,
     success: 0,
     finished: selected.length === 0,
@@ -305,10 +315,11 @@ async function route(request, response) {
       '/assets/favicon.svg': ['favicon.svg', 'image/svg+xml'],
       '/assets/connecso-mark-pair.png': ['assets/connecso-mark-pair.png', 'image/png'],
     };
+    const flagMatch = url.pathname.match(/^\/assets\/flags\/(?:[a-z]{2}|globe)\.svg$/);
     const asset = assets[url.pathname];
-    if (!asset) return fail(response, 404, 'این فایل پیدا نشد.');
-    const body = await readFile(path.join(PUBLIC, asset[0]));
-    headers(response, asset[1]);
+    if (!asset && !flagMatch) return fail(response, 404, 'این فایل پیدا نشد.');
+    const body = await readFile(path.join(PUBLIC, asset ? asset[0] : url.pathname.slice(1)));
+    headers(response, asset ? asset[1] : 'image/svg+xml');
     response.writeHead(200, { 'Content-Length': body.length });
     response.end(body);
     return;
@@ -318,6 +329,23 @@ async function route(request, response) {
   }
   if (request.method === 'GET' && url.pathname === '/api/history') {
     return sendJson(response, 200, publicHistory());
+  }
+  const metadataMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/meta$/);
+  if (request.method === 'PATCH' && metadataMatch) {
+    const job = jobs.get(metadataMatch[1]);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    let input;
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'متن درخواست معتبر نیست.'); }
+    const title = String(input.title || '').trim();
+    if (title.length > 80) return fail(response, 400, 'نام حداکثر ۸۰ نویسه باشد.');
+    const tags = [...new Set((Array.isArray(input.tags) ? input.tags : String(input.tags || '').split(',')).map((tag) => String(tag).trim()).filter(Boolean))];
+    if (tags.length > 8 || tags.some((tag) => tag.length > 24)) return fail(response, 400, 'حداکثر ۸ برچسب، هرکدام تا ۲۴ نویسه مجاز است.');
+    job.title = title;
+    job.tags = tags;
+    job.favorite = Boolean(input.favorite);
+    await saveJob(RESULTS, job);
+    return sendJson(response, 200, { id: job.id, title: job.title, tags: job.tags, favorite: job.favorite });
   }
   const rescanMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/rescan$/);
   if (request.method === 'POST' && rescanMatch) {
@@ -341,11 +369,12 @@ async function route(request, response) {
       // Legacy histories did not keep their original subscription URL. Recheck the configs saved in that result.
       text = previous.results.map((item) => item.uri).filter(Boolean).join('\n');
     }
-    const configs = parseSubscription(text);
+    const parsedConfigs = parseSubscription(text);
+    const configs = filterProtocols(parsedConfigs, previous.protocolIds);
     if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
     const offset = configs.length && subscriptionUrl ? Math.min(previous.offset || 0, configs.length - 1) : 0;
-    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
-    return sendJson(response, 202, await beginJob(configs, offset, previous.batchSize || MAX_CONCURRENT_CHECKS, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds }));
+    const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
+    return sendJson(response, 202, await beginJob(configs, offset, previous.batchSize || MAX_CONCURRENT_CHECKS, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds, protocolIds: previous.protocolIds }));
   }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {
@@ -443,16 +472,18 @@ async function route(request, response) {
         return fail(response, error.status || 400, error.message || 'دریافت لینک ساب ناموفق بود.');
       }
     }
-    const configs = parseSubscription(text);
+    const parsedConfigs = parseSubscription(text);
+    const protocolIds = Array.isArray(input.protocolIds) ? input.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(String(id).toLowerCase())).map((id) => String(id).toLowerCase()) : [...SUPPORTED_PROTOCOL_IDS];
+    const configs = filterProtocols(parsedConfigs, protocolIds);
     const subscriptionUrl = input.subscriptionUrl ? String(input.subscriptionUrl).trim() : '';
-    if (!configs.length && !subscriptionUrl) return fail(response, 400, 'کانفیگ پشتیبانی‌شده‌ای در ورودی پیدا نشد.');
+    if (!parsedConfigs.length && !subscriptionUrl) return fail(response, 400, 'کانفیگ پشتیبانی‌شده‌ای در ورودی پیدا نشد.');
     const offset = Math.max(0, Number.parseInt(input.offset || '0', 10) || 0);
-    if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های امن بیشتر است.');
+    if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های انتخاب‌شده بیشتر است.');
     const requestedBatch = Number.parseInt(input.batchSize || String(MAX_CONCURRENT_CHECKS), 10);
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.isFinite(requestedBatch) ? requestedBatch : MAX_CONCURRENT_CHECKS));
-    const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی پیدا نشد.';
+    const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
     const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
-    return sendJson(response, 202, await beginJob(configs, offset, batchSize, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, batchSize, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds }));
   }
   return fail(response, 404, 'این مسیر پیدا نشد.');
 }
