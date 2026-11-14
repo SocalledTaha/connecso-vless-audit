@@ -241,7 +241,15 @@ export async function testBatch(configs, countries, options = {}) {
     await writeFile(configPath, JSON.stringify(buildXrayBatchConfig(entries.map((item) => item.config), ports)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
     await Promise.all(ports.map((port) => waitForSocks(child, port)));
-    const checked = await Promise.all(entries.map((item, index) => testThroughSocks(item.config, item.base, ports[index], options)));
+    const checked = new Array(entries.length);
+    const concurrency = Math.min(entries.length, Math.max(1, Number(options.concurrency) || entries.length));
+    let cursor = 0;
+    await Promise.all(Array.from({ length: concurrency }, async () => {
+      while (cursor < entries.length) {
+        const index = cursor++;
+        checked[index] = await testThroughSocks(entries[index].config, entries[index].base, ports[index], options);
+      }
+    }));
     checked.forEach((result, index) => { results[entries[index].index] = result; });
   } catch (error) {
     for (const item of entries) {

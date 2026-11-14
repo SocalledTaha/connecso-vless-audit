@@ -210,7 +210,7 @@ async function runJob(job, configs) {
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS));
     for (let start = 0; start < configs.length; start += batchSize) {
       const batch = configs.slice(start, start + batchSize);
-      const results = await testBatch(batch, countries, { checkExit: job.checkExit, serviceIds: job.serviceIds });
+      const results = await testBatch(batch, countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5 });
       job.results.push(...results);
       job.done += batch.length;
       job.success = job.results.reduce((count, item) => count + (item.ok ? 1 : 0), 0);
@@ -346,6 +346,44 @@ async function route(request, response) {
     const offset = configs.length && subscriptionUrl ? Math.min(previous.offset || 0, configs.length - 1) : 0;
     const message = configs.length ? '' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
     return sendJson(response, 202, await beginJob(configs, offset, previous.batchSize || MAX_CONCURRENT_CHECKS, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds }));
+  }
+  const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
+  if (request.method === 'POST' && pingAllMatch) {
+    if (activeJob) return fail(response, 409, 'Another audit is running; retry after it finishes.');
+    const job = jobs.get(pingAllMatch[1]);
+    if (!job || !job.finished) return fail(response, 404, 'No completed audit was found.');
+    let input;
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.message || 'Invalid request.'); }
+    const uris = [...new Set(Array.isArray(input.uris) ? input.uris.map((uri) => String(uri)) : [])];
+    if (!uris.length || uris.length > 250) return fail(response, 400, 'Provide between 1 and 250 routes.');
+    const selected = [];
+    for (const uri of uris) {
+      const item = job.results.find((result) => result.ok && result.uri === uri);
+      const [config] = parseSubscription(uri);
+      if (!item || !config) return fail(response, 400, 'A route does not belong to this audit.');
+      selected.push({ uri, item, config });
+    }
+    activeJob = 'ping-all-' + pingAllMatch[1];
+    try {
+      const updates = [];
+      for (let start = 0; start < selected.length; start += 20) {
+        const chunk = selected.slice(start, start + 20);
+        const countries = Object.fromEntries(chunk.filter(({item}) => item.ip).map(({item}) => [item.ip, item.country || '']));
+        const checks = await testBatch(chunk.map(({config}) => config), countries, { checkExit: false, checkServices: false, concurrency: 4 });
+        checks.forEach((check, index) => {
+          const { uri, item } = chunk[index];
+          item.pingCheck = { ok: check.ok, ms: check.ms ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
+          updates.push({ uri, pingCheck: item.pingCheck });
+        });
+        await saveJob(RESULTS, job);
+      }
+      return sendJson(response, 200, { results: updates });
+    } catch (error) {
+      return fail(response, 502, error.message || 'Country ping checks failed.');
+    } finally {
+      activeJob = null;
+    }
   }
   const routeAction = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/(ping|download)$/);
   if (request.method === 'POST' && routeAction) {
