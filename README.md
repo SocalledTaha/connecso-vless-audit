@@ -34,7 +34,9 @@ sudo bash install.sh
 
 The installer asks for the panel hostname, HTTPS port, optional certificate contact email, and admin password. It obtains a Let's Encrypt certificate, installs renewal hooks, creates an unprivileged service account and systemd unit, and prints the final URL and login. If interrupted, rerun the same script from the same cloned directory. It resumes from the saved stage in `/var/lib/vless-audit/install-state.env` and preserves the configured password and saved audit results.
 
-To update an installation, pull the new project version in the cloned directory and rerun `sudo bash install.sh` there. The saved admin password and audit results are preserved.
+After installation, open the maintenance menu by typing `ConnecsoTools` (or `connecsotools`). It requests administrator access when needed. Running `sudo bash install.sh` again also opens this menu. It can renew or reissue TLS, change the panel domain or HTTPS port, diagnose the service and show recent logs, update from GitHub, restart the panel, and change the admin password. The domain change verifies DNS and obtains the new certificate before switching the panel.
+
+The GitHub update option pulls the latest `main` branch and reapplies the panel files. The saved admin password and audit results are preserved.
 
 The installer will not continue with certificate issuance unless at least one DNS A record matches that server's public IPv4. Multiple A records are allowed, but an extra proxy/CDN address is not treated as proof that the origin is reachable. The registrar or DNS provider must not proxy/redirect the hostname during HTTP-01 issuance.
 

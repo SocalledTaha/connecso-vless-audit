@@ -33,6 +33,7 @@ save_state() {
     printf 'PANEL_PASSWORD=%q\n' "${PANEL_PASSWORD:-}"
     printf 'NODE_BIN=%q\n' "${NODE_BIN:-}"
     printf 'XRAY_BIN=%q\n' "${XRAY_BIN:-}"
+    printf 'PROJECT_DIR=%q\n' "${PROJECT_DIR:-$SOURCE_DIR}"
   } > "$STATE_FILE.tmp"
   chmod 0600 "$STATE_FILE.tmp"
   mv -f "$STATE_FILE.tmp" "$STATE_FILE"
@@ -69,6 +70,13 @@ if [[ -r "$STATE_FILE" ]]; then # shellcheck disable=SC1090
   source "$STATE_FILE"
 fi
 STAGE="${STAGE:-0}"
+PROJECT_DIR="${PROJECT_DIR:-$SOURCE_DIR}"
+
+# Once installed, rerunning the installer opens the maintenance menu. The
+# update action sets VLESS_AUDIT_APPLY_UPDATE=1 to apply the pulled files.
+if (( STAGE >= 6 )) && [[ "${VLESS_AUDIT_APPLY_UPDATE:-0}" != 1 && -x /usr/local/bin/ConnecsoTools ]]; then
+  exec /usr/local/bin/ConnecsoTools
+fi
 
 if (( STAGE < 1 )); then
   ask_value DOMAIN 'Panel subdomain (must resolve directly to this server)' 'audit.example.com'
@@ -192,6 +200,16 @@ install -d -o "$APP_NAME" -g "$APP_NAME" -m 0750 "$DATA_DIR" "$DATA_DIR/results"
 for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$file" "$APP_DIR/$file"; done
 for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done
+
+install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
+install -o root -g root -m 0755 "$SOURCE_DIR/manage.sh" /usr/local/lib/connecso-tools/manage.sh
+cat > /usr/local/bin/ConnecsoTools <<'EOF'
+#!/usr/bin/env bash
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then exec sudo /usr/local/bin/ConnecsoTools "$@"; fi
+exec /usr/bin/env bash /usr/local/lib/connecso-tools/manage.sh "$@"
+EOF
+chmod 0755 /usr/local/bin/ConnecsoTools
+ln -sf /usr/local/bin/ConnecsoTools /usr/local/bin/connecsotools
 
 CERT_LIVE="/etc/letsencrypt/live/$DOMAIN"
 install -o root -g "$APP_NAME" -m 0640 "$CERT_LIVE/fullchain.pem" "$CONFIG_DIR/server.crt"

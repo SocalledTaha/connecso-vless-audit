@@ -16,6 +16,8 @@ systemctl disable --now "$APP_NAME.service" 2>/dev/null || true
 rm -f "/etc/systemd/system/$APP_NAME.service"
 systemctl daemon-reload
 rm -rf -- "$APP_DIR" "$CONFIG_DIR"
+rm -f /usr/local/bin/ConnecsoTools /usr/local/bin/connecsotools
+rm -rf -- /usr/local/lib/connecso-tools
 rm -f /etc/letsencrypt/renewal-hooks/pre/20-vless-audit \
   /etc/letsencrypt/renewal-hooks/post/20-vless-audit \
   /etc/letsencrypt/renewal-hooks/deploy/20-vless-audit
