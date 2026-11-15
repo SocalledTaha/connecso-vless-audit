@@ -214,7 +214,9 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
   return summary(job);
 }
 
-async function runJob(job, configs, startAt = 0) {
+async function runJob(job, configs, startAt = 0, recoveryAttempt = 0) {
+  job.error = '';
+  job.interrupted = false;
   try {
     const addresses = [];
     for (const config of configs) {
@@ -235,16 +237,23 @@ async function runJob(job, configs, startAt = 0) {
   } catch (error) {
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
     console.error('audit job failed:', job.id, job.error);
-  } finally {
-    job.finished = true;
-    activeJob = null;
-    await saveJob(RESULTS, job);
-    if (job.done >= job.total) {
-      job.scanConfigs = null;
-      await unlink(path.join(RESULTS, `${job.id}.scan.json`)).catch(() => {});
+    if (job.done < job.total && recoveryAttempt < 2) {
+      job.finished = false;
+      job.interrupted = false;
+      await saveJob(RESULTS, job).catch((saveError) => console.error('could not save interrupted audit:', saveError.message));
+      setTimeout(() => runJob(job, configs, job.done, recoveryAttempt + 1), 1200 * (recoveryAttempt + 1));
+      return;
     }
-    resumePendingJobs().catch((error) => console.error('audit resume failed:', error.message));
   }
+  job.finished = true;
+  job.interrupted = Boolean(job.error && job.done < job.total);
+  activeJob = null;
+  await saveJob(RESULTS, job);
+  if (job.done >= job.total) {
+    job.scanConfigs = null;
+    await unlink(path.join(RESULTS, `${job.id}.scan.json`)).catch(() => {});
+  }
+  resumePendingJobs().catch((error) => console.error('audit resume failed:', error.message));
 }
 
 async function resumePendingJobs() {
