@@ -223,7 +223,10 @@ chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
 find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
 find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
 for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$file" "$APP_DIR/$file"; done
-for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
+while IFS= read -r -d '' file; do
+  relative="${file#"$SOURCE_DIR/src/"}"
+  install -D -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/src/$relative"
+done < <(find "$SOURCE_DIR/src" -maxdepth 1 -type f -name '*.mjs' ! -name '*.test.mjs' -print0)
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done
 if [[ -d "$SOURCE_DIR/public/assets" ]]; then
   while IFS= read -r -d '' file; do

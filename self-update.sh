@@ -60,7 +60,10 @@ install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/pu
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/server.mjs" "$APP_DIR/server.mjs"
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/package.json" "$APP_DIR/package.json"
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/package-lock.json" "$APP_DIR/package-lock.json"
-for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/src/$file" "$APP_DIR/src/$file"; done
+while IFS= read -r -d '' file; do
+  relative="${file#"$PROJECT_DIR/src/"}"
+  install -D -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/src/$relative"
+done < <(find "$PROJECT_DIR/src" -maxdepth 1 -type f -name '*.mjs' ! -name '*.test.mjs' -print0)
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/public/$file" "$APP_DIR/public/$file"; done
 if [[ -d "$PROJECT_DIR/public/assets" ]]; then
   while IFS= read -r -d '' file; do
