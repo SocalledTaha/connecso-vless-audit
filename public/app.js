@@ -209,8 +209,8 @@ function serviceIcon(service) {
 }
 function serviceName(service) { return state.lang === 'fa' ? (service.fa || service.name) : (service.en || service.name); }
 function serviceStatus(item, id) { return item.services?.find((result) => result.id === id) || null; }
-function serviceGroupSummary(item, group) {
-  const services = state.serviceCatalog.filter((service) => service.group === group.id);
+function serviceGroupSummary(item, groupId) {
+  const services = state.serviceCatalog.filter((service) => service.group === groupId);
   const checked = services.map((service) => serviceStatus(item, service.id)).filter(Boolean);
   if (!checked.length) return `—/${number(services.length)}`;
   const ok = checked.filter((result) => result.ok).length;
