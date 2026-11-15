@@ -16,7 +16,7 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 ## ✨ Features
 - Read an HTTPS subscription URL or paste plain-text/Base64 configs.
 - Select which protocols to scan: VLESS, VMess, Trojan, Shadowsocks, and Hysteria2. Xray WireGuard and MASQUE outbounds can be supplied as Xray JSON. AmneziaWG is not a native Xray outbound and is not scanned as one.
-- Show HTTPS response time (RTT), exit IP/country, and optional HTTPS reachability for Gemini, YouTube, Instagram, and Telegram.
+- Show HTTPS response time (RTT), exit IP/country, and optional HTTPS reachability for Gemini, YouTube, Instagram, and Telegram. Country lookup uses a local monthly DB-IP Lite database, with a network lookup as fallback.
 - Choose the Xray worker count automatically from available server memory. Each worker checks up to 10 routes concurrently, using separate, non-overlapping sections of the subscription.
 - Filter by country and protocol, search, sort, identify duplicates, and copy/download country-grouped JSON.
 - Reopen or rescan saved audits; give a saved audit a custom name and tags or mark it as a favorite.
@@ -24,6 +24,8 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 - Use the Persian/English interface, light/dark themes, and password-protected administrator login.
 
 This tool checks and exports configurations. It does not change another panel, its clients, routing rules, or an existing Xray service. Temporary Xray processes are launched only while checks are running.
+
+Country data comes from [DB-IP Lite](https://db-ip.com), is refreshed monthly, and is stored under the panel data directory. It does not add Xray workers. The page footer includes the attribution required by the database license.
 
 ## 🧪 How checks work
 Each worker uses a temporary Xray process and a separate local SOCKS port per route. The scanner checks available system and container memory, keeps a 640 MiB reserve, and automatically chooses up to three workers with a 384 MiB budget each. Workers receive separate, non-overlapping sections of the subscription, with up to 10 routes checked concurrently per worker (up to 30 total with three workers). The running worker count appears in the progress panel. Completed indexes are saved so retries continue only unfinished routes. The displayed RTT is the time for an HTTPS request to receive a response through that route; it is not ICMP ping and does not represent server-to-server latency. The optional service indicators also measure HTTPS reachability only, not account login. Download tests run only when requested.

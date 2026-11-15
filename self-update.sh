@@ -53,9 +53,13 @@ git -C "$PROJECT_DIR" merge --ff-only origin/main >/dev/null 2>&1 || fail "The l
 
 write_status installing
 backup="$(mktemp /var/lib/vless-audit/panel-update-backup.XXXXXX.tar.gz)"
-tar -C "$APP_DIR" -czf "$backup" server.mjs src public 2>/dev/null || fail "Could not create a rollback copy."
+backup_paths=(server.mjs src public)
+for item in package.json package-lock.json node_modules; do [[ -e "$APP_DIR/$item" ]] && backup_paths+=("$item"); done
+tar -C "$APP_DIR" -czf "$backup" "${backup_paths[@]}" 2>/dev/null || fail "Could not create a rollback copy."
 install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/public/assets"
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/server.mjs" "$APP_DIR/server.mjs"
+install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/package.json" "$APP_DIR/package.json"
+install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/package-lock.json" "$APP_DIR/package-lock.json"
 for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/src/$file" "$APP_DIR/src/$file"; done
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/public/$file" "$APP_DIR/public/$file"; done
 if [[ -d "$PROJECT_DIR/public/assets" ]]; then
@@ -64,6 +68,19 @@ if [[ -d "$PROJECT_DIR/public/assets" ]]; then
     install -D -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/$relative"
   done < <(find "$PROJECT_DIR/public/assets" -type f -print0)
 fi
+NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
+NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
+[[ -x "$NPM_BIN" ]] || NPM_BIN="$(command -v npm || true)"
+[[ -n "$NPM_BIN" ]] || fail "npm is required to install the local GeoIP reader."
+if ! "$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund; then
+  rm -rf -- "$APP_DIR/node_modules"
+  tar -C "$APP_DIR" -xzf "$backup"
+  rm -f -- "$backup"
+  fail "Could not install the panel's GeoIP reader; the previous files were restored."
+fi
+chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
+find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
+find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
 
 write_status restarting
 if ! systemctl restart "$APP_NAME.service"; then

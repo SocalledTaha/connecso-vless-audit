@@ -3,10 +3,16 @@ import { createServer, connect } from 'node:net';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, rename as renameFile, stat as statFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { createGunzip } from 'node:zlib';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { tmpdir } from 'node:os';
 import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import maxmind from 'maxmind';
 import { buildXrayBatchConfig, buildXrayConfig, isPublicAddress, toPanelOutbound } from './vless.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -18,6 +24,10 @@ const SERVICE_TARGETS = [
   { id: 'telegram', name: 'Telegram', url: 'https://telegram.org/' },
 ];
 const RTT_TARGET = 'https://www.youtube.com/generate_204';
+const GEO_DB_PATH = process.env.GEOIP_DB_FILE || path.join(path.dirname(process.env.RESULTS_DIR || '/opt/vless-audit/results'), 'geo', 'dbip-country-lite.mmdb');
+const GEO_DB_MAX_AGE = 35 * 24 * 60 * 60 * 1000;
+let geoReader = null;
+let geoReaderPromise = null;
 
 export async function recommendedXrayWorkers() {
   const MiB = 1024 * 1024;
@@ -79,22 +89,94 @@ async function directEndpointPing(address) {
 export async function geoMap(addresses) {
   const countries = {};
   const unique = [...new Set(addresses)];
-  for (let offset = 0; offset < unique.length; offset += 100) {
+  const reader = await getGeoReader();
+  if (reader) {
+    for (const address of unique) {
+      try {
+        const record = reader.get(address);
+        const countryCode = record?.country?.iso_code || '';
+        const country = record?.country?.names?.en || '';
+        if (countryCode && country) countries[address] = { country, countryCode };
+      } catch {}
+    }
+  }
+  const missing = unique.filter((address) => !countries[address]);
+  for (let offset = 0; offset < missing.length; offset += 100) {
     try {
       const response = await fetch('http://ip-api.com/batch?fields=status,query,country,countryCode', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'user-agent': 'VlessAudit/2.0' },
-        body: JSON.stringify(unique.slice(offset, offset + 100)),
+        body: JSON.stringify(missing.slice(offset, offset + 100)),
         signal: AbortSignal.timeout(8000),
       });
-      if (!response.ok) continue;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const values = await response.json();
       for (const item of values) {
-        if (item.status === 'success') countries[item.query] = { country: item.country || '', countryCode: item.countryCode || '' };
+        if (item.status === 'success' && item.query && item.countryCode) countries[item.query] = { country: item.country || '', countryCode: item.countryCode || '' };
       }
-    } catch {}
+    } catch (error) {
+      console.warn(`GeoIP fallback failed for batch ${Math.floor(offset / 100) + 1}: ${error.message}`);
+    }
   }
+  const unresolved = unique.length - Object.keys(countries).length;
+  if (unresolved) console.warn(`GeoIP could not identify ${unresolved}/${unique.length} destination IPs.`);
   return countries;
+}
+
+async function getGeoReader() {
+  if (geoReader) {
+    try {
+      const info = await statFile(GEO_DB_PATH);
+      if (Date.now() - info.mtimeMs <= GEO_DB_MAX_AGE) return geoReader;
+      refreshGeoDatabase().catch((error) => console.warn(`GeoIP database refresh failed: ${error.message}`));
+    } catch {}
+    return geoReader;
+  }
+  if (!geoReaderPromise) {
+    geoReaderPromise = (async () => {
+      try {
+        geoReader = await maxmind.open(GEO_DB_PATH);
+        const info = await statFile(GEO_DB_PATH);
+        if (Date.now() - info.mtimeMs > GEO_DB_MAX_AGE) {
+          try { await refreshGeoDatabase(); }
+          catch (error) { console.warn(`GeoIP database refresh failed; using the cached copy: ${error.message}`); }
+        }
+        return geoReader;
+      } catch {
+        try { return await refreshGeoDatabase(); }
+        catch (error) {
+          console.warn(`Local GeoIP database unavailable: ${error.message}`);
+          return null;
+        }
+      }
+    })().finally(() => { geoReaderPromise = null; });
+  }
+  return geoReaderPromise;
+}
+
+async function refreshGeoDatabase() {
+  await mkdir(path.dirname(GEO_DB_PATH), { recursive: true });
+  const now = new Date();
+  for (let age = 0; age < 3; age += 1) {
+    const month = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - age, 1));
+    const release = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`;
+    const url = `https://download.db-ip.com/free/dbip-country-lite-${release}.mmdb.gz`;
+    const temporary = `${GEO_DB_PATH}.download-${process.pid}`;
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { 'user-agent': 'ConnecsoOutboundAudit/1.0' } });
+      if (!response.ok || !response.body) throw new Error(`download returned HTTP ${response.status}`);
+      await pipeline(Readable.fromWeb(response.body), createGunzip(), createWriteStream(temporary, { mode: 0o640 }));
+      const reader = await maxmind.open(temporary);
+      if (!reader.get('8.8.8.8')?.country?.iso_code) throw new Error('downloaded database did not pass validation');
+      await renameFile(temporary, GEO_DB_PATH);
+      geoReader = reader;
+      return reader;
+    } catch (error) {
+      await rm(temporary, { force: true }).catch(() => {});
+      if (age === 2) throw error;
+    }
+  }
+  return geoReader;
 }
 
 async function checkService(target, port, signal) {

@@ -214,6 +214,14 @@ if ! getent group "$APP_NAME" >/dev/null; then groupadd --system "$APP_NAME"; fi
 if ! id "$APP_NAME" >/dev/null 2>&1; then useradd --system --gid "$APP_NAME" --home-dir "$DATA_DIR" --shell /usr/sbin/nologin "$APP_NAME"; fi
 install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/public/assets" "$CONFIG_DIR"
 install -d -o "$APP_NAME" -g "$APP_NAME" -m 0750 "$DATA_DIR" "$DATA_DIR/results"
+install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/package.json" "$SOURCE_DIR/package-lock.json" "$APP_DIR/"
+NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
+[[ -x "$NPM_BIN" ]] || NPM_BIN="$(command -v npm || true)"
+[[ -n "$NPM_BIN" ]] || die 'npm is required to install the local GeoIP reader.'
+"$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund
+chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
+find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
+find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
 for file in server.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/$file" "$APP_DIR/$file"; done
 for file in vless.mjs probe.mjs store.mjs; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/src/$file" "$APP_DIR/src/$file"; done
 for file in index.html app.js app.css login.html login.js login.css favicon.svg; do install -o root -g "$APP_NAME" -m 0640 "$SOURCE_DIR/public/$file" "$APP_DIR/public/$file"; done

@@ -1,0 +1,8 @@
+{
+  "name": "connecso-vless-audit",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "maxmind": "4.3.25"
+  }
+}
