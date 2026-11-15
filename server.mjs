@@ -174,6 +174,7 @@ function summary(job) {
     failed: Math.max(0, job.done - job.success),
     finished: Boolean(job.finished),
     interrupted: Boolean(job.interrupted),
+    error: job.error || '',
     canRescan: true,
     hasSubscriptionUrl: Boolean(job.subscriptionUrl),
     needsRescanUrl: Boolean(!job.subscriptionUrl && !job.results.some((item) => item.uri)),
@@ -200,6 +201,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     finished: selected.length === 0,
     interrupted: false,
     results: [],
+    scanConfigs: selected,
     ...(message ? { message } : {}),
     ...(subscriptionUrl ? { subscriptionUrl } : {}),
   };
@@ -212,7 +214,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
   return summary(job);
 }
 
-async function runJob(job, configs) {
+async function runJob(job, configs, startAt = 0) {
   try {
     const addresses = [];
     for (const config of configs) {
@@ -222,7 +224,7 @@ async function runJob(job, configs) {
     }
     const countries = await geoMap(addresses);
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS));
-    for (let start = 0; start < configs.length; start += batchSize) {
+    for (let start = startAt; start < configs.length; start += batchSize) {
       const batch = configs.slice(start, start + batchSize);
       const results = await testBatch(batch, countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5 });
       job.results.push(...results);
@@ -232,10 +234,60 @@ async function runJob(job, configs) {
     }
   } catch (error) {
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
+    console.error('audit job failed:', job.id, job.error);
   } finally {
     job.finished = true;
     activeJob = null;
     await saveJob(RESULTS, job);
+    if (job.done >= job.total) {
+      job.scanConfigs = null;
+      await unlink(path.join(RESULTS, `${job.id}.scan.json`)).catch(() => {});
+    }
+    resumePendingJobs().catch((error) => console.error('audit resume failed:', error.message));
+  }
+}
+
+async function resumePendingJobs() {
+  if (activeJob) return;
+  const pending = [...jobs.values()]
+    .filter((job) => !job.finished)
+    .sort((a, b) => String(a.created).localeCompare(String(b.created)));
+  for (const job of pending) {
+    activeJob = job.id;
+    let configs = Array.isArray(job.scanConfigs) ? job.scanConfigs : null;
+    if ((!configs || !configs.length) && job.subscriptionUrl) {
+      try {
+        const text = await fetchSubscription(job.subscriptionUrl);
+        configs = filterProtocols(parseSubscription(text), job.protocolIds || [...SUPPORTED_PROTOCOL_IDS])
+          .slice(job.offset || 0, (job.offset || 0) + MAX_CONFIGS_PER_AUDIT);
+        job.scanConfigs = configs;
+        job.total = configs.length;
+        job.done = Math.min(Number(job.done) || 0, configs.length);
+        await saveJob(RESULTS, job);
+      } catch (error) {
+        job.error = `بازیابی لینک اشتراک ناموفق بود: ${error.message || 'خطای دریافت'}`;
+      }
+    }
+    if (!configs?.length) {
+      job.finished = true;
+      job.interrupted = true;
+      activeJob = null;
+      await saveJob(RESULTS, job);
+      continue;
+    }
+    if (job.done >= configs.length) {
+      job.finished = true;
+      job.interrupted = false;
+      job.scanConfigs = null;
+      activeJob = null;
+      await saveJob(RESULTS, job);
+      await unlink(path.join(RESULTS, `${job.id}.scan.json`)).catch(() => {});
+      continue;
+    }
+    job.interrupted = false;
+    console.log(`Resuming audit ${job.id} from ${job.done}/${job.total}`);
+    runJob(job, configs, job.done);
+    return;
   }
 }
 
@@ -530,4 +582,7 @@ const server = https.createServer({
 server.headersTimeout = 12_000;
 server.requestTimeout = 20_000;
 server.keepAliveTimeout = 5_000;
-server.listen(PORT, HOST, () => console.log('Connecso Outbound Audit listening on ' + HOST + ':' + PORT));
+server.listen(PORT, HOST, () => {
+  console.log('Connecso Outbound Audit listening on ' + HOST + ':' + PORT);
+  resumePendingJobs().catch((error) => console.error('audit resume failed:', error.message));
+});
