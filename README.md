@@ -17,7 +17,7 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 - Read an HTTPS subscription URL or paste plain-text/Base64 configs.
 - Select which protocols to scan: VLESS, VMess, Trojan, Shadowsocks, and Hysteria2. Xray WireGuard and MASQUE outbounds can be supplied as Xray JSON. AmneziaWG is not a native Xray outbound and is not scanned as one.
 - Show HTTPS response time (RTT), exit IP/country, and optional HTTPS reachability for Gemini, YouTube, Instagram, and Telegram.
-- Run checks in batches of 10 or 20 with bounded concurrency.
+- Choose the Xray worker count automatically from available server memory. Each worker checks up to 10 routes concurrently, using separate, non-overlapping sections of the subscription.
 - Filter by country and protocol, search, sort, identify duplicates, and copy/download country-grouped JSON.
 - Reopen or rescan saved audits; give a saved audit a custom name and tags or mark it as a favorite.
 - Recheck a route or all routes in a country and optionally run a five-second download check.
@@ -26,7 +26,7 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 This tool checks and exports configurations. It does not change another panel, its clients, routing rules, or an existing Xray service. Temporary Xray processes are launched only while checks are running.
 
 ## 🧪 How checks work
-Each batch uses a temporary Xray process and a separate local SOCKS port per route. The scanner checks available system and container memory, keeps a 640 MiB reserve, and runs up to three workers with a 384 MiB budget each. Workers receive separate, non-overlapping sections of the subscription, with up to 10 routes checked concurrently per worker (up to 30 total with three workers). Completed indexes are saved so retries continue only unfinished routes. The displayed RTT is the time for an HTTPS request to receive a response through that route; it is not ICMP ping and does not represent server-to-server latency. The optional service indicators also measure HTTPS reachability only, not account login. Download tests run only when requested.
+Each worker uses a temporary Xray process and a separate local SOCKS port per route. The scanner checks available system and container memory, keeps a 640 MiB reserve, and automatically chooses up to three workers with a 384 MiB budget each. Workers receive separate, non-overlapping sections of the subscription, with up to 10 routes checked concurrently per worker (up to 30 total with three workers). The running worker count appears in the progress panel. Completed indexes are saved so retries continue only unfinished routes. The displayed RTT is the time for an HTTPS request to receive a response through that route; it is not ICMP ping and does not represent server-to-server latency. The optional service indicators also measure HTTPS reachability only, not account login. Download tests run only when requested.
 
 ## 🧰 Requirements
 - Ubuntu or Debian and root access.

@@ -81,7 +81,7 @@ export async function saveJob(directory, job) {
     tags: Array.isArray(job.tags) ? [...new Set(job.tags.map((tag) => String(tag).trim()).filter(Boolean))].slice(0, 8).map((tag) => tag.slice(0, 24)) : [],
     favorite: Boolean(job.favorite),
     total: job.total, available: job.available, offset: job.offset,
-    batchSize: job.batchSize || 10, checkExit: job.checkExit !== false,
+    batchSize: 10, workerCount: Number(job.workerCount) || 0, checkExit: job.checkExit !== false,
     serviceIds: Array.isArray(job.serviceIds) ? job.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
     protocolIds: Array.isArray(job.protocolIds) ? job.protocolIds : undefined,
     ...(job.subscriptionUrl ? { subscriptionUrl: job.subscriptionUrl } : {}),

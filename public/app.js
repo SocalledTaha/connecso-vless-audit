@@ -12,18 +12,18 @@ const dictionaries = {
     intro:'اتصال‌های VLESS، Shadowsocks و Hysteria2 را از مسیر واقعی بررسی کن؛ RTT، کشور IP خروجی و دسترسی HTTPS به سرویس‌ها را ببین.',
     proof1:'TLS یا Reality', proof2:'آزمون با Xray', proof3:'RTT و سرویس‌ها', step1:'گام اول', sourceTitle:'منبع کانفیگ را وارد کن', encrypted:'ارتباط رمزگذاری‌شده',
     tabUrl:'لینک اشتراک', tabText:'متن کانفیگ', urlLabel:'آدرس HTTPS اشتراک', urlHint:'آدرس فقط برای دریافت همین نوبت بررسی می‌شود.',
-    textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.', offsetLabel:'شروع از کانفیگ', batchLabel:'تست هم‌زمان',
-    batchHint:'هر دسته با Xray مشترک بررسی می‌شود.', start:'شروع بررسی', busy:'در حال بررسی…',
+    textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.', offsetLabel:'شروع از کانفیگ',
+    batchHint:'تعداد workerها با توجه به رم آزاد سرور خودکار تنظیم می‌شود.', start:'شروع بررسی', busy:'در حال بررسی…',
     whatChecked:'چه چیزی بررسی می‌شود؟', methodTitle:'پاسخ واقعی،<br>معیار موفقیت است.',
     methodCopy:'Xray از هر کانفیگ وصل می‌شود و درخواست‌های HTTPS را از همان تونل می‌فرستد.',
     encryptedOnly:'رمزنگاری', tlsRealityOnly:'TLS، Reality یا رمزنگاری پروتکل', fullConnection:'اتصال کامل', httpsReply:'پاسخ HTTPS از مسیر تونل', serviceAccess:'دسترسی سرویس',
     privacy:'بررسی سرویس‌ها فقط دسترسی HTTPS را می‌سنجد و ورود به حساب را آزمایش نمی‌کند.', running:'بررسی در حال اجرا',
     connecting:'در حال اتصال به کانفیگ‌ها', interrupted:'بررسی قبلی نیمه‌کاره ماند', completed:'بررسی تمام شد',
-    xrayRunning:'Xray در حال آزمایش مسیرهاست.', batchProgress:(n)=>`Xray دسته‌های ${n}تایی را در پس‌زمینه و با ۱ تا ۳ worker متناسب با رم آزاد سرور بررسی می‌کند؛ می‌توانی صفحه را ببندی و بعداً از سابقه نتیجه را ببینی.`,
+    xrayRunning:'Xray در حال آزمایش مسیرهاست.', batchProgress:(n)=>n?`در حال بررسی با ${number(n)} worker بر اساس رم آزاد سرور؛ هر worker تا ۱۰ مسیر را هم‌زمان می‌سنجد. می‌توانی صفحه را ببندی و بعداً نتیجه را از سابقه ببینی.`:'تعداد workerها با توجه به رم آزاد سرور به‌صورت خودکار تعیین می‌شود؛ می‌توانی صفحه را ببندی و بعداً نتیجه را از سابقه ببینی.',
     progressCount:(d,t,s)=>`${d} از ${t} · موفق ${s}`,
     doneCount:(s,t)=>`${s} اتصال موفق از ${t} مورد.`,
     historyLabel:'سابقهٔ بررسی', historyTitle:'نتیجه‌های قبلی', refresh:'تازه‌سازی', loadingHistory:'در حال دریافت سابقه…',
-    editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
+    editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', editSubscriptionUrl:'لینک اشتراک', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
     historySuccess:(s,t,o,d,finished,interrupted)=>`${s} موفق · ${d} از ${t} بررسی‌شده · شروع ${number(o+1)}${finished?' · پایان‌یافته':interrupted?' · متوقف‌شده':' · ادامه در پس‌زمینه'}`,
     resultsLabel:'خروجی بررسی', resultTitle:'کانفیگ‌های موفق', resultsLoading:'در حال دریافت نتیجه‌ها به بخش‌های کوچک…',
     loading:'در حال بارگذاری…', loadErr:'نتیجه‌ها بارگذاری نشدند', retryHistory:'می‌توانی دوباره از سابقه همین بررسی را باز کنی.',
@@ -48,17 +48,17 @@ const dictionaries = {
     intro:'Test VLESS, Shadowsocks, and Hysteria2 through a real route. Review RTT, exit IP country, and HTTPS reachability for popular services.',
     proof1:'TLS or Reality', proof2:'Tested with Xray', proof3:'RTT and services', step1:'STEP 1', sourceTitle:'Choose a configuration source', encrypted:'Encrypted connection',
     tabUrl:'Subscription URL', tabText:'Paste configs', urlLabel:'HTTPS subscription URL', urlHint:'The URL is fetched only for this audit.',
-    textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.', offsetLabel:'Start at config', batchLabel:'Concurrent checks',
-    batchHint:'Each batch is checked through one shared Xray instance.', start:'Start audit', busy:'Checking…',
+    textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.', offsetLabel:'Start at config',
+    batchHint:'Worker count is automatically adjusted to available server memory.', start:'Start audit', busy:'Checking…',
     whatChecked:'What gets checked?', methodTitle:'A real response<br>is the success signal.',
     methodCopy:'Xray connects with each config and sends HTTPS requests through that same tunnel.',
     encryptedOnly:'Encryption', tlsRealityOnly:'TLS, Reality, or protocol encryption', fullConnection:'Full connection', httpsReply:'HTTPS reply through the tunnel', serviceAccess:'Service access',
     privacy:'Service checks measure HTTPS reachability only. They do not sign in to accounts.', running:'AUDIT IN PROGRESS',
     connecting:'Connecting through configurations', interrupted:'Previous audit was interrupted', completed:'Audit complete',
-    xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>`Xray checks batches of ${n} in the background, using 1–3 workers based on available server memory. You can close this page and return to history later.`,
+    xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>n?`Checking with ${n} worker(s), selected from available server memory; each worker checks up to 10 routes at once. You can close this page and return to history later.`:'Worker count is selected automatically from available server memory. You can close this page and return to history later.',
     progressCount:(d,t,s)=>`${d} of ${t} · ${s} working`, doneCount:(s,t)=>`${s} working routes out of ${t}.`,
     historyLabel:'AUDIT HISTORY', historyTitle:'Previous results', refresh:'Refresh', loadingHistory:'Loading history…',
-    editHistory:'Edit', editName:'Search name', editTags:'Tags', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
+    editHistory:'Edit', editName:'Search name', editTags:'Tags', editSubscriptionUrl:'Subscription URL', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
     historySuccess:(s,t,o,d,finished,interrupted)=>`${s} working · ${d} of ${t} checked · starts at ${number(o+1)}${finished?' · complete':interrupted?' · interrupted':' · running in background'}`,
     resultsLabel:'AUDIT OUTPUT', resultTitle:'Working configurations', resultsLoading:'Loading results in small sections…',
     loading:'Loading…', loadErr:'Could not load results', retryHistory:'You can reopen this audit from history.',
@@ -151,7 +151,7 @@ function setProgress(job, detail = '') {
   elements.progressTitle.textContent = job.finished ? (job.interrupted ? t('interrupted') : t('completed')) : t('connecting');
   elements.progressCount.textContent = t('progressCount', number(job.done || 0), number(job.total || 0), number(job.success || 0));
   elements.progressBar.style.width = `${job.total ? Math.min(100, (job.done / job.total) * 100) : 0}%`;
-  elements.progressMessage.textContent = detail || job.message || (job.finished ? t('doneCount', number(job.success || 0), number(job.total || 0)) : t('batchProgress', number(job.batchSize || 10)));
+  elements.progressMessage.textContent = detail || job.message || (job.finished ? t('doneCount', number(job.success || 0), number(job.total || 0)) : t('batchProgress', Number(job.workerCount) || 0));
 }
 function dateLabel(value) {
   const parsed = new Date(String(value).replace(' UTC', 'Z'));
@@ -168,7 +168,7 @@ async function loadHistory() {
       const tags = (job.tags || []).map((tag) => `<span class="history-tag">${escapeHtml(tag)}</span>`).join('');
       const offset = Number(job.offset) || 0;
       const done = Number(job.done) || 0;
-      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), offset, number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
+      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), offset, number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
     }).join('');
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
 }
@@ -416,7 +416,7 @@ document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()
 }));
 elements.form.addEventListener('submit',async(event)=>{
   event.preventDefault();const replacingCheck=state.busy&&['ping-all','audit'].includes(state.busyKind);if(state.busy&&!replacingCheck)return;showError();const isUrl=!$('#url-mode').hidden;
-    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={offset:Number(elements.offset.value||0),batchSize:Number($('#batch-size').value||10),protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
+    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={offset:Number(elements.offset.value||0),protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
   if(isUrl)payload.subscriptionUrl=elements.url.value.trim();else payload.text=elements.text.value.trim();
   if(isUrl&&!payload.subscriptionUrl)return showError(t('askUrl'));if(!isUrl&&!payload.text)return showError(t('askText'));
   const previousGeneration=state.activityGeneration;let generation=previousGeneration;let accepted=false;let declined=false;
@@ -498,7 +498,7 @@ elements.history.addEventListener('submit', async (event) => {
   try {
     const data = new FormData(form);
     const tags = String(data.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-    await api(`/api/jobs/${encodeURIComponent(form.dataset.historyForm)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:String(data.get('title') || ''), tags, favorite:form.dataset.favorite === 'true' }) });
+    await api(`/api/jobs/${encodeURIComponent(form.dataset.historyForm)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:String(data.get('title') || ''), tags, subscriptionUrl:String(data.get('subscriptionUrl') || '').trim(), favorite:form.dataset.favorite === 'true' }) });
     await loadHistory();
   } catch (error) { showError(error.message); submit.disabled = false; }
 });

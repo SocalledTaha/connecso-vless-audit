@@ -20,7 +20,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 const PASSWORD = process.env.PANEL_PASSWORD || '';
 const MAX_BODY = 12_000_000;
 const CHUNK_SIZE = 100;
-const MAX_CONCURRENT_CHECKS = 20;
+const AUTO_BATCH_SIZE = 10;
 const MAX_ROUTES_PER_XRAY = 10;
 const MAX_CONFIGS_PER_AUDIT = 2500;
 const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
@@ -171,7 +171,8 @@ function summary(job) {
     total: job.total,
     available: job.available,
     offset: job.offset,
-    batchSize: Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS)),
+    batchSize: AUTO_BATCH_SIZE,
+    workerCount: Number(job.workerCount) || 0,
     done: job.done,
     success: job.success,
     failed: Math.max(0, job.done - job.success),
@@ -180,13 +181,13 @@ function summary(job) {
     error: job.error || '',
     canRescan: true,
     hasSubscriptionUrl: Boolean(job.subscriptionUrl),
+    subscriptionUrl: job.subscriptionUrl || '',
     needsRescanUrl: Boolean(!job.subscriptionUrl && !job.results.some((item) => item.uri)),
     message: job.message || '',
   };
 }
 
-async function beginJob(configs, offset, batchSize, subscriptionUrl = '', message = '', scanOptions = {}) {
-  batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.parseInt(batchSize, 10) || MAX_CONCURRENT_CHECKS));
+async function beginJob(configs, offset, subscriptionUrl = '', message = '', scanOptions = {}) {
   const selected = configs.slice(offset, offset + MAX_CONFIGS_PER_AUDIT);
   const id = crypto.randomBytes(9).toString('base64url');
   const job = {
@@ -195,7 +196,8 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     total: selected.length,
     available: configs.length,
     offset,
-    batchSize,
+    batchSize: AUTO_BATCH_SIZE,
+    workerCount: 0,
     checkExit: scanOptions.checkExit !== false,
     serviceIds: Array.isArray(scanOptions.serviceIds) ? scanOptions.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
     protocolIds: Array.isArray(scanOptions.protocolIds) ? scanOptions.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)) : [...SUPPORTED_PROTOCOL_IDS],
@@ -253,7 +255,7 @@ async function runJob(job, configs, operation = null) {
     }
     const countries = await geoMap(addresses);
     if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
-    const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS));
+    const batchSize = AUTO_BATCH_SIZE;
     const checked = new Set(Array.isArray(job.checkedIndexes)
       ? job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < configs.length)
       : Array.from({ length: Math.min(configs.length, Number(job.done) || 0) }, (_, index) => index));
@@ -261,6 +263,8 @@ async function runJob(job, configs, operation = null) {
     job.done = checked.size;
     const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
     const workerCount = Math.min(await recommendedXrayWorkers(), Math.max(1, remaining.length));
+    job.workerCount = workerCount;
+    await saveJob(RESULTS, job);
     console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending.`);
     const partitionSize = Math.ceil(remaining.length / workerCount);
     const partitions = Array.from({ length: workerCount }, (_, index) => remaining.slice(index * partitionSize, (index + 1) * partitionSize)).filter((items) => items.length);
@@ -523,11 +527,23 @@ async function route(request, response) {
     if (title.length > 80) return fail(response, 400, 'نام حداکثر ۸۰ نویسه باشد.');
     const tags = [...new Set((Array.isArray(input.tags) ? input.tags : String(input.tags || '').split(',')).map((tag) => String(tag).trim()).filter(Boolean))];
     if (tags.length > 8 || tags.some((tag) => tag.length > 24)) return fail(response, 400, 'حداکثر ۸ برچسب، هرکدام تا ۲۴ نویسه مجاز است.');
+    let subscriptionUrl = job.subscriptionUrl || '';
+    if (Object.hasOwn(input, 'subscriptionUrl')) {
+      subscriptionUrl = String(input.subscriptionUrl || '').trim();
+      if (subscriptionUrl.length > 2048) return fail(response, 400, 'لینک اشتراک بیش از حد طولانی است.');
+      if (subscriptionUrl) {
+        try {
+          const parsedUrl = new URL(subscriptionUrl);
+          if (!['http:', 'https:'].includes(parsedUrl.protocol) || parsedUrl.username || parsedUrl.password) throw new Error();
+        } catch { return fail(response, 400, 'لینک اشتراک باید یک آدرس HTTP یا HTTPS معتبر باشد.'); }
+      }
+    }
     job.title = title;
     job.tags = tags;
     job.favorite = Boolean(input.favorite);
+    job.subscriptionUrl = subscriptionUrl;
     await saveJob(RESULTS, job);
-    return sendJson(response, 200, { id: job.id, title: job.title, tags: job.tags, favorite: job.favorite });
+    return sendJson(response, 200, { id: job.id, title: job.title, tags: job.tags, favorite: job.favorite, hasSubscriptionUrl: Boolean(job.subscriptionUrl) });
   }
   const rescanMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/rescan$/);
   if (request.method === 'POST' && rescanMatch) {
@@ -556,7 +572,7 @@ async function route(request, response) {
     if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
     const offset = configs.length && subscriptionUrl ? Math.min(previous.offset || 0, configs.length - 1) : 0;
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
-    return sendJson(response, 202, await beginJob(configs, offset, previous.batchSize || MAX_CONCURRENT_CHECKS, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds, protocolIds: previous.protocolIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds, protocolIds: previous.protocolIds }));
   }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {
@@ -680,8 +696,6 @@ async function route(request, response) {
     if (!parsedConfigs.length && !subscriptionUrl) return fail(response, 400, 'کانفیگ پشتیبانی‌شده‌ای در ورودی پیدا نشد.');
     const offset = Math.max(0, Number.parseInt(input.offset || '0', 10) || 0);
     if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های انتخاب‌شده بیشتر است.');
-    const requestedBatch = Number.parseInt(input.batchSize || String(MAX_CONCURRENT_CHECKS), 10);
-    const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.isFinite(requestedBatch) ? requestedBatch : MAX_CONCURRENT_CHECKS));
     const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
     const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
     if (activeJob) {
@@ -696,7 +710,7 @@ async function route(request, response) {
         return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
       }
     }
-    return sendJson(response, 202, await beginJob(configs, offset, batchSize, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds }));
   }
   return fail(response, 404, 'این مسیر پیدا نشد.');
 }

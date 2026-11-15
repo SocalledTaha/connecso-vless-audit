@@ -52,3 +52,5 @@
 .result-item .result-ping{grid-column:3}.result-item .result-exit{grid-column:4}
 @media(max-width:850px){.result-item{grid-template-columns:20px minmax(0,1fr) auto auto}.result-item .result-primary{grid-column:2}.result-item .result-ping{grid-column:3;grid-row:1}.result-item .result-exit{grid-column:4;grid-row:1}.result-item .security-tag{grid-column:3;grid-row:2}.result-item .connection-actions{grid-column:4;grid-row:2}}
 @media(max-width:520px){.result-item{grid-template-columns:18px minmax(0,1fr) auto}.result-item .result-primary{grid-column:2/-1}.result-item .result-ping{grid-column:3;grid-row:2}.result-item .result-exit{grid-column:3;grid-row:3}.result-item .security-tag{grid-column:2;grid-row:2}.result-item .connection-actions{grid-column:1/-1;grid-row:4}.result-item .service-checks{grid-column:1/-1}}
+
+.history-edit-url{grid-column:1/-1}.history-edit-actions{grid-column:1/-1}
