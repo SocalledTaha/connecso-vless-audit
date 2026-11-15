@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSubscription } from './src/vless.mjs';
-import { geoMap, publicAddresses, recommendedXrayWorkers, testBatch, testOne, testDownload, openProbeSession } from './src/probe.mjs';
+import { geoMap, publicAddresses, recommendedXrayWorkerPlan, testBatch, testOne, testDownload, openProbeSession } from './src/probe.mjs';
 import { loadJobs, saveJob } from './src/store.mjs';
 import { SERVICES, SERVICE_GROUPS } from './src/services.mjs';
 
@@ -322,10 +322,12 @@ async function runJob(job, configs, operation = null) {
     job.checkedIndexes = [...checked].sort((a, b) => a - b);
     job.done = checked.size;
     const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
-    const workerCount = Math.min(await recommendedXrayWorkers(), Math.max(1, remaining.length));
+    const workerPlan = await recommendedXrayWorkerPlan();
+    const workerLimit = Math.max(1, Math.min(3, Number(job.workerLimit) || 3));
+    const workerCount = Math.min(workerPlan.count, workerLimit, Math.max(1, remaining.length));
     job.workerCount = workerCount;
     await saveJob(RESULTS, job);
-    console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending.`);
+    console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending (RAM available ${workerPlan.availableMiB} MiB; reserve ${workerPlan.reserveMiB} MiB; ${workerPlan.workerBudgetMiB} MiB per worker).`);
     const partitionSize = Math.ceil(remaining.length / workerCount);
     const partitions = Array.from({ length: workerCount }, (_, index) => remaining.slice(index * partitionSize, (index + 1) * partitionSize)).filter((items) => items.length);
     let saveQueue = Promise.resolve();
@@ -342,12 +344,24 @@ async function runJob(job, configs, operation = null) {
       });
       return saveQueue;
     };
-    const failures = await Promise.all(partitions.map(async (partition) => {
+    const failures = await Promise.all(partitions.map(async (partition, workerIndex) => {
       try {
         for (let start = 0; start < partition.length; start += batchSize) {
           if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
           const batch = partition.slice(start, start + batchSize);
-          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: false, serviceIds: [], concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true });
+          let loggedReady = false;
+          const results = await testBatch(batch.map((item) => item.config), countries, {
+            checkExit: false,
+            serviceIds: [],
+            concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY),
+            signal,
+            throwBatchErrors: true,
+            onXrayReady: (routeCount) => {
+              if (loggedReady) return;
+              loggedReady = true;
+              console.log(`Audit ${job.id}: worker ${workerIndex + 1}/${partitions.length} Xray ready for ${routeCount} routes.`);
+            },
+          });
           await persistBatch(results, batch.map((item) => item.index));
         }
         return null;
@@ -376,6 +390,10 @@ async function runJob(job, configs, operation = null) {
     }
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
     console.error('audit job failed:', job.id, job.error);
+    if (error.code === 'XRAY_STARTUP' && Number(job.workerCount) > 1) {
+      job.workerLimit = Math.max(1, Number(job.workerCount) - 1);
+      console.warn(`Audit ${job.id}: reducing Xray worker limit to ${job.workerLimit} after a worker startup failure.`);
+    }
     if (job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
       job.recoveryRetries = Number(job.recoveryRetries || 0) + 1;
       job.finished = false;

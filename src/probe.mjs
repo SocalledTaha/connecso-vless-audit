@@ -24,9 +24,27 @@ const GEO_DB_MAX_AGE = 35 * 24 * 60 * 60 * 1000;
 let geoReader = null;
 let geoReaderPromise = null;
 
-export async function recommendedXrayWorkers() {
+export function calculateXrayWorkerPlan(availableBytes, totalBytes) {
   const MiB = 1024 * 1024;
+  const total = Math.max(MiB, Number(totalBytes) || MiB);
+  const available = Math.max(0, Number(availableBytes) || 0);
+  // Reserve a proportional slice for the OS and panel, then budget each
+  // additional Xray process conservatively. A large fixed reserve prevented
+  // 2–3 workers from ever being selected on ordinary 1–2 GiB VPSes.
+  const reserved = Math.min(320 * MiB, Math.max(160 * MiB, total * 0.20));
+  const budgetPerWorker = 128 * MiB;
+  const count = Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker)));
+  return {
+    count,
+    availableMiB: Math.round(available / MiB),
+    reserveMiB: Math.round(reserved / MiB),
+    workerBudgetMiB: Math.round(budgetPerWorker / MiB),
+  };
+}
+
+export async function recommendedXrayWorkerPlan() {
   let available = os.freemem();
+  let total = os.totalmem();
   try {
     const memoryInfo = await readFile('/proc/meminfo', 'utf8');
     const match = memoryInfo.match(/^MemAvailable:\s+(\d+)\s+kB$/m);
@@ -40,7 +58,10 @@ export async function recommendedXrayWorkers() {
     ]);
     const limit = Number(limitText.trim());
     const current = Number(currentText.trim());
-    if (Number.isFinite(limit) && limit > 0 && Number.isFinite(current)) available = Math.min(available, Math.max(0, limit - current));
+    if (Number.isFinite(limit) && limit > 0 && Number.isFinite(current)) {
+      available = Math.min(available, Math.max(0, limit - current));
+      total = Math.min(total, limit);
+    }
   } catch {
     try {
       const [limitText, usageText] = await Promise.all([
@@ -49,16 +70,46 @@ export async function recommendedXrayWorkers() {
       ]);
       const limit = Number(limitText.trim());
       const usage = Number(usageText.trim());
-      if (Number.isFinite(limit) && limit < 2 ** 60 && Number.isFinite(usage)) available = Math.min(available, Math.max(0, limit - usage));
+      if (Number.isFinite(limit) && limit < 2 ** 60 && Number.isFinite(usage)) {
+        available = Math.min(available, Math.max(0, limit - usage));
+        total = Math.min(total, limit);
+      }
     } catch {}
   }
-  // Xray's worker process is shared by up to ten route checks. Keep a real
-  // system reserve, but don't budget hundreds of MiB for each lightweight worker.
-  // Keep headroom for one dedicated interactive Xray while a background scan
-  // runs on the automatically selected worker pool.
-  const reserved = 640 * MiB;
-  const budgetPerWorker = 80 * MiB;
-  return Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker) || 1));
+  return calculateXrayWorkerPlan(available, total);
+}
+
+export async function recommendedXrayWorkers() {
+  return (await recommendedXrayWorkerPlan()).count;
+}
+
+function spawnXray(configPath) {
+  const child = spawn(XRAY, ['run', '-c', configPath], { stdio: ['ignore', 'ignore', 'pipe'] });
+  child.xrayStderr = '';
+  child.xraySpawnError = null;
+  child.stderr?.on('data', (chunk) => {
+    child.xrayStderr = (child.xrayStderr + chunk.toString('utf8')).slice(-3000);
+  });
+  child.on('error', (error) => { child.xraySpawnError = error; });
+  return child;
+}
+
+function xrayStartupError(child, reason = '') {
+  const stderr = String(child?.xrayStderr || '')
+    .replace(/\u001b\[[0-9;]*m/g, '')
+    .replace(/\b(password|passwd|uuid|private[_ -]?key|secret)(\s*[:=]\s*)[^\s,;]+/gi, '$1$2[redacted]')
+    .replace(/\b(vless|vmess|trojan|ss|hysteria2):\/\/[^\s]+/gi, '$1://[redacted]')
+    .trim();
+  const spawnError = child?.xraySpawnError;
+  const exit = child?.signalCode ? `signal ${child.signalCode}` : `exit ${child?.exitCode ?? 'unknown'}`;
+  const detail = spawnError
+    ? `اجرای Xray ممکن نشد (${spawnError.code || spawnError.message}).`
+    : stderr
+      ? stderr.slice(-500)
+      : reason || `Xray با ${exit} خارج شد.`;
+  const error = new Error(`Xray outbound راه نیفتاد: ${detail}`);
+  error.code = 'XRAY_STARTUP';
+  return error;
 }
 
 export async function publicAddresses(host) {
@@ -272,16 +323,22 @@ function waitForSocks(child, port, timeoutMs = 3500, signal) {
       settled = true;
       clearInterval(timer);
       child.off('exit', onExit);
+      child.off('error', onSpawnError);
       signal?.removeEventListener('abort', onAbort);
       error ? reject(error) : resolve();
     };
-    const onExit = () => finish(new Error('Xray outbound راه نیفتاد.'));
+    const onExit = () => finish(xrayStartupError(child));
+    const onSpawnError = () => finish(xrayStartupError(child));
     const onAbort = () => finish(signal.reason || new Error('بررسی لغو شد.'));
     if (signal?.aborted) return onAbort();
+    if (child.xraySpawnError || child.exitCode !== null || child.signalCode !== null) return finish(xrayStartupError(child));
     child.once('exit', onExit);
+    child.once('error', onSpawnError);
     signal?.addEventListener('abort', onAbort, { once: true });
     timer = setInterval(() => {
-      if (Date.now() - started > timeoutMs) return finish(new Error('مهلت راه‌اندازی Xray تمام شد.'));
+      if (Date.now() - started > timeoutMs) {
+        return finish(xrayStartupError(child, 'مهلت راه‌اندازی Xray تمام شد.'));
+      }
       const socket = connect({ host: '127.0.0.1', port });
       socket.setTimeout(200);
       socket.once('connect', () => { socket.destroy(); finish(); });
@@ -401,7 +458,7 @@ export async function openProbeSession(config, countries = {}, options = {}) {
   try {
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
-    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    child = spawnXray(configPath);
     await waitForSocks(child, port, 3500, options.signal);
     return {
       base,
@@ -470,10 +527,11 @@ export async function testBatch(configs, countries, options = {}) {
     if (options.signal?.aborted) throw options.signal.reason || new Error('بررسی لغو شد.');
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayBatchConfig(entries.map((item) => item.config), ports)));
-    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    child = spawnXray(configPath);
     child.setMaxListeners(Math.max(10, ports.length + 2));
     if (options.signal?.aborted) abortChild();
     await Promise.all(ports.map((port) => waitForSocks(child, port, 3500, options.signal)));
+    options.onXrayReady?.(entries.length);
     const checked = new Array(entries.length);
     const concurrency = Math.min(entries.length, Math.max(1, Number(options.concurrency) || entries.length));
     let cursor = 0;
@@ -511,7 +569,7 @@ export async function testDownload(config, options = {}) {
   try {
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
-    child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    child = spawnXray(configPath);
     await waitForSocks(child, port, 3500, signal);
     let bytes = 0;
     const statuses = [];

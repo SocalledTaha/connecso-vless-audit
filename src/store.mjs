@@ -18,6 +18,7 @@ export async function loadJobs(directory) {
       job.tags = Array.isArray(job.tags) ? job.tags : [];
       job.favorite = Boolean(job.favorite);
       job.recoveryRetries = Math.max(0, Math.min(5, Number.parseInt(job.recoveryRetries, 10) || 0));
+      job.workerLimit = Math.max(1, Math.min(3, Number.parseInt(job.workerLimit, 10) || 3));
       job.protocolIds = Array.isArray(job.protocolIds) ? job.protocolIds : null;
       for (const result of job.results) {
         if (result.ok && !result.outbound && result.uri) {
@@ -91,7 +92,9 @@ async function writeSavedJob(directory, job) {
     tags: Array.isArray(job.tags) ? [...new Set(job.tags.map((tag) => String(tag).trim()).filter(Boolean))].slice(0, 8).map((tag) => tag.slice(0, 24)) : [],
     favorite: Boolean(job.favorite),
     total: job.total, available: job.available, offset: job.offset,
-    batchSize: 10, workerCount: Number(job.workerCount) || 0, checkExit: job.checkExit !== false,
+    batchSize: 10, workerCount: Number(job.workerCount) || 0,
+    workerLimit: Math.max(1, Math.min(3, Number.parseInt(job.workerLimit, 10) || 3)),
+    checkExit: job.checkExit !== false,
     serviceIds: Array.isArray(job.serviceIds) ? job.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
     protocolIds: Array.isArray(job.protocolIds) ? job.protocolIds : undefined,
     ...(job.subscriptionUrl ? { subscriptionUrl: job.subscriptionUrl } : {}),
