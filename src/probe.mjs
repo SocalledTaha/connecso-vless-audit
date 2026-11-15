@@ -212,13 +212,24 @@ async function testThroughSocks(config, base, port, options = {}) {
 }
 
 async function stopXray(child, directory) {
-  if (child && child.exitCode === null) {
+  if (child?.pid && child.exitCode === null && child.signalCode === null) {
+    const waitForClose = (timeoutMs = 0) => new Promise((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null) return resolve(true);
+      let timer;
+      const done = (closed) => {
+        if (timer) clearTimeout(timer);
+        child.off('close', onClose);
+        resolve(closed);
+      };
+      const onClose = () => done(true);
+      child.once('close', onClose);
+      if (timeoutMs) timer = setTimeout(() => done(false), timeoutMs);
+    });
     child.kill('SIGTERM');
-    await Promise.race([
-      new Promise((resolve) => child.once('exit', resolve)),
-      new Promise((resolve) => setTimeout(resolve, 900)),
-    ]);
-    if (child.exitCode === null) child.kill('SIGKILL');
+    if (!await waitForClose(1200) && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await waitForClose();
+    }
   }
   await rm(directory, { recursive: true, force: true });
 }
@@ -415,14 +426,6 @@ export async function testDownload(config) {
         const timer = setTimeout(() => { if (download.exitCode === null && download.signalCode === null) download.kill('SIGKILL'); }, 900);
         download.once('close', () => { clearTimeout(timer); resolve(); });
       })));
-    if (child && child.exitCode === null) {
-      child.kill('SIGTERM');
-      await Promise.race([
-        new Promise((resolve) => child.once('exit', resolve)),
-        new Promise((resolve) => setTimeout(resolve, 900)),
-      ]);
-      if (child.exitCode === null) child.kill('SIGKILL');
-    }
-    await rm(directory, { recursive: true, force: true });
+    await stopXray(child, directory);
   }
 }
