@@ -2,8 +2,9 @@ import dns from 'node:dns/promises';
 import { createServer, connect } from 'node:net';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import os from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { buildXrayBatchConfig, buildXrayConfig, isPublicAddress, toPanelOutbound } from './vless.mjs';
@@ -17,6 +18,39 @@ const SERVICE_TARGETS = [
   { id: 'telegram', name: 'Telegram', url: 'https://telegram.org/' },
 ];
 const RTT_TARGET = 'https://www.youtube.com/generate_204';
+
+export async function recommendedXrayWorkers() {
+  const MiB = 1024 * 1024;
+  let available = os.freemem();
+  try {
+    const memoryInfo = await readFile('/proc/meminfo', 'utf8');
+    const match = memoryInfo.match(/^MemAvailable:\s+(\d+)\s+kB$/m);
+    if (match) available = Number(match[1]) * 1024;
+  } catch {}
+  // Respect container limits when the panel runs inside a cgroup.
+  try {
+    const [limitText, currentText] = await Promise.all([
+      readFile('/sys/fs/cgroup/memory.max', 'utf8'),
+      readFile('/sys/fs/cgroup/memory.current', 'utf8'),
+    ]);
+    const limit = Number(limitText.trim());
+    const current = Number(currentText.trim());
+    if (Number.isFinite(limit) && limit > 0 && Number.isFinite(current)) available = Math.min(available, Math.max(0, limit - current));
+  } catch {
+    try {
+      const [limitText, usageText] = await Promise.all([
+        readFile('/sys/fs/cgroup/memory/memory.limit_in_bytes', 'utf8'),
+        readFile('/sys/fs/cgroup/memory/memory.usage_in_bytes', 'utf8'),
+      ]);
+      const limit = Number(limitText.trim());
+      const usage = Number(usageText.trim());
+      if (Number.isFinite(limit) && limit < 2 ** 60 && Number.isFinite(usage)) available = Math.min(available, Math.max(0, limit - usage));
+    } catch {}
+  }
+  const reserved = 640 * MiB;
+  const budgetPerWorker = 384 * MiB;
+  return Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker) || 1));
+}
 
 export async function publicAddresses(host) {
   const literal = host.replace(/^\[|\]$/g, '');
@@ -271,6 +305,7 @@ export async function testBatch(configs, countries, options = {}) {
     }));
     checked.forEach((result, index) => { results[entries[index].index] = result; });
   } catch (error) {
+    if (options.throwBatchErrors) throw error;
     for (const item of entries) {
       if (!results[item.index]) {
         item.base.error = error.message || 'اجرای دستهٔ Xray ناموفق بود.';

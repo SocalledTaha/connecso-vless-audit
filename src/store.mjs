@@ -86,6 +86,7 @@ export async function saveJob(directory, job) {
     protocolIds: Array.isArray(job.protocolIds) ? job.protocolIds : undefined,
     ...(job.subscriptionUrl ? { subscriptionUrl: job.subscriptionUrl } : {}),
     done: job.done, success: job.success, finished: job.finished,
+    ...(Array.isArray(job.checkedIndexes) ? { checkedIndexes: [...new Set(job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < job.total))].sort((a, b) => a - b) } : {}),
     interrupted: Boolean(job.interrupted), ...(job.message ? { message: job.message } : {}),
     resumeEligible: Boolean(job.resumeEligible),
     recoveryRetries: Math.max(0, Math.min(5, Number.parseInt(job.recoveryRetries, 10) || 0)),

@@ -26,7 +26,7 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 This tool checks and exports configurations. It does not change another panel, its clients, routing rules, or an existing Xray service. Temporary Xray processes are launched only while checks are running.
 
 ## 🧪 How checks work
-Each batch uses a temporary Xray process and a separate local SOCKS port per route. The displayed RTT is the time for an HTTPS request to receive a response through that route; it is not ICMP ping and does not represent server-to-server latency. The optional service indicators also measure HTTPS reachability only, not account login. Download tests run only when requested.
+Each batch uses a temporary Xray process and a separate local SOCKS port per route. The scanner checks available system and container memory, keeps a 640 MiB reserve, and runs up to three workers with a 384 MiB budget each. Workers receive separate, non-overlapping sections of the subscription, and completed indexes are saved so retries continue only unfinished routes. The displayed RTT is the time for an HTTPS request to receive a response through that route; it is not ICMP ping and does not represent server-to-server latency. The optional service indicators also measure HTTPS reachability only, not account login. Download tests run only when requested.
 
 ## 🧰 Requirements
 - Ubuntu or Debian and root access.

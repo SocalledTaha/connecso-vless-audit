@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSubscription } from './src/vless.mjs';
-import { geoMap, publicAddresses, testBatch, testOne, testDownload } from './src/probe.mjs';
+import { geoMap, publicAddresses, recommendedXrayWorkers, testBatch, testOne, testDownload } from './src/probe.mjs';
 import { loadJobs, saveJob } from './src/store.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -203,6 +203,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     interrupted: false,
     resumeEligible: selected.length > 0,
     recoveryRetries: 0,
+    checkedIndexes: [],
     results: [],
     scanConfigs: selected,
     ...(message ? { message } : {}),
@@ -217,7 +218,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
   return summary(job);
 }
 
-async function runJob(job, configs, startAt = 0) {
+async function runJob(job, configs) {
   job.error = '';
   job.interrupted = false;
   try {
@@ -229,15 +230,44 @@ async function runJob(job, configs, startAt = 0) {
     }
     const countries = await geoMap(addresses);
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS));
-    for (let start = startAt; start < configs.length; start += batchSize) {
-      const batch = configs.slice(start, start + batchSize);
-      const results = await testBatch(batch, countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5 });
-      job.results.push(...results);
-      job.done += batch.length;
-      job.recoveryRetries = 0;
-      job.success = job.results.reduce((count, item) => count + (item.ok ? 1 : 0), 0);
-      await saveJob(RESULTS, job);
-    }
+    const checked = new Set(Array.isArray(job.checkedIndexes)
+      ? job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < configs.length)
+      : Array.from({ length: Math.min(configs.length, Number(job.done) || 0) }, (_, index) => index));
+    job.checkedIndexes = [...checked].sort((a, b) => a - b);
+    job.done = checked.size;
+    const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
+    const workerCount = Math.min(await recommendedXrayWorkers(), Math.max(1, remaining.length));
+    console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending.`);
+    const partitionSize = Math.ceil(remaining.length / workerCount);
+    const partitions = Array.from({ length: workerCount }, (_, index) => remaining.slice(index * partitionSize, (index + 1) * partitionSize)).filter((items) => items.length);
+    let saveQueue = Promise.resolve();
+    const persistBatch = (batchResults, indexes) => {
+      saveQueue = saveQueue.then(async () => {
+        job.results.push(...batchResults);
+        indexes.forEach((index) => checked.add(index));
+        job.checkedIndexes = [...checked].sort((a, b) => a - b);
+        job.done = checked.size;
+        job.recoveryRetries = 0;
+        job.success = job.results.reduce((count, item) => count + (item.ok ? 1 : 0), 0);
+        await saveJob(RESULTS, job);
+      });
+      return saveQueue;
+    };
+    const failures = await Promise.all(partitions.map(async (partition) => {
+      try {
+        for (let start = 0; start < partition.length; start += batchSize) {
+          const batch = partition.slice(start, start + batchSize);
+          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5, throwBatchErrors: true });
+          await persistBatch(results, batch.map((item) => item.index));
+        }
+        return null;
+      } catch (error) {
+        return error;
+      }
+    }));
+    await saveQueue;
+    const failure = failures.find(Boolean);
+    if (failure) throw failure;
   } catch (error) {
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
     console.error('audit job failed:', job.id, job.error);
@@ -246,7 +276,7 @@ async function runJob(job, configs, startAt = 0) {
       job.finished = false;
       job.interrupted = false;
       await saveJob(RESULTS, job).catch((saveError) => console.error('could not save interrupted audit:', saveError.message));
-      setTimeout(() => runJob(job, configs, job.done), 1200);
+      setTimeout(() => runJob(job, configs), 1200);
       return;
     }
   }
@@ -319,7 +349,7 @@ async function resumePendingJobs() {
     }
     job.interrupted = false;
     console.log(`Resuming audit ${job.id} from ${job.done}/${job.total}`);
-    runJob(job, configs, job.done);
+    runJob(job, configs);
     return;
   }
 }
