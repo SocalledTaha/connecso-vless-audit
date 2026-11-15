@@ -57,7 +57,7 @@ The panel also has an **Update** button for installing the latest GitHub version
 - Saved audits, labels, favorite flags, tags, and installer state are kept under `/var/lib/vless-audit/`. Audit records also contain the submitted subscription URL when one was used; protect server access and backups accordingly.
 - The service runs as an unprivileged account with systemd filesystem restrictions.
 - The optional download check runs for five seconds using four parallel streams.
-- Successful routes show HTTP RTT through the tunnel and a separate direct ICMP ping from the audit server to the endpoint IP. The direct ping may be unavailable if the endpoint blocks ICMP.
+- Successful routes show HTTP RTT through the tunnel and a separate TCP connection time from the audit server to the endpoint IP. Direct timing may be unavailable for UDP routes or endpoints that block TCP.
 - Logs are managed by systemd-journald; the maintenance menu shows the latest 40 log entries.
 
 ## 🗑️ Uninstall

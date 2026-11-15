@@ -446,7 +446,14 @@ async function watchInteractive(task, options = {}) {
       state.interactiveProgress={done:current.done,total:current.total};
       if(current.kind==='services') {
         const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
-        if(item) updateServiceProgress(item);
+        if(item&&Array.isArray(current.result?.serviceResults)){
+          item.services=item.services||[];
+          for(const result of current.result.serviceResults){
+            const ix=item.services.findIndex((entry)=>entry.id===result.id);
+            if(ix>=0)item.services[ix]=result;else item.services.push(result);
+          }
+          refreshServicePanel(item);
+        } else if(item) updateServiceProgress(item);
       }
       await new Promise((resolve)=>window.setTimeout(resolve,1000));
       current=await api(`/api/interactive/${encodeURIComponent(task.id)}`);

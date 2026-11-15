@@ -573,8 +573,16 @@ async function runInteractiveTask(task, job, item, config) {
       if (task.kind === 'services') {
         task.status = 'running';
         task.total = SERVICES.length;
-        const checks = await session.checkServices(SERVICES.map(({ id }) => id), signal, (done, total) => {
-          task.done = done; task.total = total; task.updated = new Date().toISOString();
+        task.liveServices = [];
+        item.services = [];
+        item.servicesChecked = null;
+        const checks = await session.checkServices(SERVICES.map(({ id }) => id), signal, (done, total, check) => {
+          const checked = new Date().toISOString();
+          const result = { ...check, checked };
+          task.done = done; task.total = total; task.liveServices.push(result); task.result = { serviceResults: task.liveServices }; task.updated = checked;
+          const serviceIndex = (item.services || []).findIndex((entry) => entry.id === result.id);
+          if (serviceIndex >= 0) item.services[serviceIndex] = result;
+          else item.services = [...(item.services || []), result];
         });
         item.services = checks.map((check) => ({ ...check, checked: new Date().toISOString() }));
         item.servicesChecked = new Date().toISOString();
