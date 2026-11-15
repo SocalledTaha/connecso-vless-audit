@@ -1,6 +1,6 @@
 const $ = (selector) => document.querySelector(selector);
 const elements = {
-  form: $('#analyze-form'), url: $('#subscription-url'), text: $('#subscription-text'), offset: $('#start-offset'),
+  form: $('#analyze-form'), url: $('#subscription-url'), text: $('#subscription-text'),
   start: $('#start-button'), error: $('#form-error'), progress: $('#progress-panel'), progressTitle: $('#progress-title'),
   progressCount: $('#progress-count'), progressBar: $('#progress-bar'), progressMessage: $('#progress-message'), history: $('#history-list'),
   results: $('#results-section'), resultsTitle: $('#results-title'), resultsSummary: $('#results-summary'), search: $('#result-search'), countries: $('#country-results'),
@@ -12,7 +12,7 @@ const dictionaries = {
     intro:'اتصال‌های VLESS، Shadowsocks و Hysteria2 را از مسیر واقعی بررسی کن؛ RTT، کشور IP خروجی و دسترسی HTTPS به سرویس‌ها را ببین.',
     proof1:'TLS یا Reality', proof2:'آزمون با Xray', proof3:'RTT و سرویس‌ها', step1:'گام اول', sourceTitle:'منبع کانفیگ را وارد کن', encrypted:'ارتباط رمزگذاری‌شده',
     tabUrl:'لینک اشتراک', tabText:'متن کانفیگ', urlLabel:'آدرس HTTPS اشتراک', urlHint:'آدرس فقط برای دریافت همین نوبت بررسی می‌شود.',
-    textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.', offsetLabel:'شروع از کانفیگ',
+    textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.',
     batchHint:'تعداد workerها با توجه به رم آزاد سرور خودکار تنظیم می‌شود.', start:'شروع بررسی', busy:'در حال بررسی…',
     whatChecked:'چه چیزی بررسی می‌شود؟', methodTitle:'پاسخ واقعی،<br>معیار موفقیت است.',
     methodCopy:'Xray از هر کانفیگ وصل می‌شود و درخواست‌های HTTPS را از همان تونل می‌فرستد.',
@@ -23,8 +23,8 @@ const dictionaries = {
     progressCount:(d,t,s)=>`${d} از ${t} · موفق ${s}`,
     doneCount:(s,t)=>`${s} اتصال موفق از ${t} مورد.`,
     historyLabel:'سابقهٔ بررسی', historyTitle:'نتیجه‌های قبلی', refresh:'تازه‌سازی', loadingHistory:'در حال دریافت سابقه…',
-    editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', editSubscriptionUrl:'لینک اشتراک', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
-    historySuccess:(s,t,o,d,finished,interrupted)=>`${s} موفق · ${d} از ${t} بررسی‌شده · شروع ${number(o+1)}${finished?' · پایان‌یافته':interrupted?' · متوقف‌شده':' · ادامه در پس‌زمینه'}`,
+    editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', editSubscriptionUrl:'لینک اشتراک', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', resume:'ادامه', resumeError:'ادامهٔ این بررسی ممکن نشد.', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
+    historySuccess:(s,t,d,finished,interrupted)=>`${s} موفق · ${d} از ${t} بررسی‌شده${finished?' · پایان‌یافته':interrupted?' · متوقف‌شده':' · ادامه در پس‌زمینه'}`,
     resultsLabel:'خروجی بررسی', resultTitle:'کانفیگ‌های موفق', resultsLoading:'در حال دریافت نتیجه‌ها به بخش‌های کوچک…',
     loading:'در حال بارگذاری…', loadErr:'نتیجه‌ها بارگذاری نشدند', retryHistory:'می‌توانی دوباره از سابقه همین بررسی را باز کنی.',
     resultsLoaded:(s,t)=>`${s} نتیجهٔ موفق · ${t} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
@@ -39,7 +39,7 @@ const dictionaries = {
     replacePingConfirm:'یک بررسی هنوز در حال اجراست. متوقفش کنم و بررسی این فهرست جدید را همین حالا شروع کنم؟',
     newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر کانفیگ دریافت نشد.',
     serviceHint:'دسترسی فقط با درخواست HTTPS بررسی می‌شود؛ وضعیت ممکن است با محدودیت منطقه‌ای سرویس فرق داشته باشد.',
-    updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
+    updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updatePreparing:'در حال آماده‌سازی فایل‌های پنل…', updateDependencies:'در حال نصب وابستگی‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
     themeLabel:'تغییر تم', langLabel:'Switch to English', healthError:'ارتباط با سرویس برقرار نشد',
   },
   en: {
@@ -48,7 +48,7 @@ const dictionaries = {
     intro:'Test VLESS, Shadowsocks, and Hysteria2 through a real route. Review RTT, exit IP country, and HTTPS reachability for popular services.',
     proof1:'TLS or Reality', proof2:'Tested with Xray', proof3:'RTT and services', step1:'STEP 1', sourceTitle:'Choose a configuration source', encrypted:'Encrypted connection',
     tabUrl:'Subscription URL', tabText:'Paste configs', urlLabel:'HTTPS subscription URL', urlHint:'The URL is fetched only for this audit.',
-    textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.', offsetLabel:'Start at config',
+    textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.',
     batchHint:'Worker count is automatically adjusted to available server memory.', start:'Start audit', busy:'Checking…',
     whatChecked:'What gets checked?', methodTitle:'A real response<br>is the success signal.',
     methodCopy:'Xray connects with each config and sends HTTPS requests through that same tunnel.',
@@ -58,8 +58,8 @@ const dictionaries = {
     xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>n?`Checking with ${n} worker(s), selected from available server memory; each worker checks up to 10 routes at once. You can close this page and return to history later.`:'Worker count is selected automatically from available server memory. You can close this page and return to history later.',
     progressCount:(d,t,s)=>`${d} of ${t} · ${s} working`, doneCount:(s,t)=>`${s} working routes out of ${t}.`,
     historyLabel:'AUDIT HISTORY', historyTitle:'Previous results', refresh:'Refresh', loadingHistory:'Loading history…',
-    editHistory:'Edit', editName:'Search name', editTags:'Tags', editSubscriptionUrl:'Subscription URL', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
-    historySuccess:(s,t,o,d,finished,interrupted)=>`${s} working · ${d} of ${t} checked · starts at ${number(o+1)}${finished?' · complete':interrupted?' · interrupted':' · running in background'}`,
+    editHistory:'Edit', editName:'Search name', editTags:'Tags', editSubscriptionUrl:'Subscription URL', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', resume:'Resume', resumeError:'Could not resume this audit.', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
+    historySuccess:(s,t,d,finished,interrupted)=>`${s} working · ${d} of ${t} checked${finished?' · complete':interrupted?' · interrupted':' · running in background'}`,
     resultsLabel:'AUDIT OUTPUT', resultTitle:'Working configurations', resultsLoading:'Loading results in small sections…',
     loading:'Loading…', loadErr:'Could not load results', retryHistory:'You can reopen this audit from history.',
     resultsLoaded:(s,t)=>`${s} working results · ${t} configs checked · loaded in pages`,
@@ -74,7 +74,7 @@ const dictionaries = {
     replacePingConfirm:'A check is still running. Stop it and start checking this new list now?',
     newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this route.',
     serviceHint:'Checks use HTTPS requests only; regional service restrictions may affect availability.',
-    updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking for a new version…', updateDownloading:'Downloading files…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
+    updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking the installation…', updateDownloading:'Downloading the latest files…', updatePreparing:'Preparing the panel files…', updateDependencies:'Installing dependencies…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
     themeLabel:'Toggle theme', langLabel:'تغییر زبان به فارسی', healthError:'Could not connect to the audit service',
   },
 };
@@ -103,8 +103,8 @@ function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('vless-audit-theme', theme);
   $('#theme-toggle .theme-symbol').innerHTML = theme === 'dark'
-    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.6 8.6 0 1 0 20.5 15.2Z"/></svg>';
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.8"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42 1.42M18.8 3.2v3.4m-1.7-1.7h3.4"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.1A8.7 8.7 0 0 1 9.9 3.6 8.9 8.9 0 1 0 20.4 14.1Z"/><path d="M17.2 4v3m-1.5-1.5h3M20 10v2m-1-1h2"/></svg>';
   $('#theme-toggle [data-theme-label]').textContent = t(theme === 'dark' ? 'lightTheme' : 'darkTheme');
   document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#080c10' : '#f3f8fb';
 }
@@ -125,23 +125,24 @@ function showUpdateStatus(status) {
   output.dataset.updateId = status.id || status.state;
   output.hidden = status.state === 'idle';
   output.classList.toggle('is-error', status.state === 'failed');
-  output.textContent = status.state === 'complete' ? t('updateComplete') : status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : UPDATE_LABELS[status.state] ? t(UPDATE_LABELS[status.state]) : t('updateNoHelper');
+  const messageKey = status.message || (status.state === 'complete' ? 'updateComplete' : UPDATE_LABELS[status.state]);
+  output.textContent = status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : messageKey ? t(messageKey) : t('updateNoHelper');
   button.disabled = active;
   if (status.state === 'complete') {
-    const shownUpdate = output.dataset.updateId;
+    const completedId = output.dataset.updateId;
     window.setTimeout(() => {
-      if (output.dataset.updateId === shownUpdate) output.hidden = true;
+      if (output.dataset.updateId === completedId) output.hidden = true;
     }, 5000);
   }
 }
 async function watchUpdate() {
   try {
-    const status = await api('/api/update/status');
+    const status = await api(`/api/update/status?t=${Date.now()}`);
     showUpdateStatus(status);
     if (UPDATE_ACTIVE.has(status.state)) { window.setTimeout(watchUpdate, 1800); return; }
     if (status.state === 'complete' && status.id && localStorage.getItem('vless-audit-reloaded-update') !== status.id) {
       localStorage.setItem('vless-audit-reloaded-update', status.id);
-      window.setTimeout(() => window.location.reload(), 900);
+      window.setTimeout(() => window.location.reload(), 2200);
     }
   } catch { window.setTimeout(watchUpdate, 1800); }
 }
@@ -166,9 +167,8 @@ async function loadHistory() {
     elements.history.innerHTML = items.map((job) => {
       const title = job.title?.trim() || job.id;
       const tags = (job.tags || []).map((tag) => `<span class="history-tag">${escapeHtml(tag)}</span>`).join('');
-      const offset = Number(job.offset) || 0;
       const done = Number(job.done) || 0;
-      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), offset, number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
+      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}${job.canResume ? `<button class="open-history resume-history" type="button" data-resume-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('resume'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
     }).join('');
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
 }
@@ -416,7 +416,7 @@ document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()
 }));
 elements.form.addEventListener('submit',async(event)=>{
   event.preventDefault();const replacingCheck=state.busy&&['ping-all','audit'].includes(state.busyKind);if(state.busy&&!replacingCheck)return;showError();const isUrl=!$('#url-mode').hidden;
-    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={offset:Number(elements.offset.value||0),protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
+    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
   if(isUrl)payload.subscriptionUrl=elements.url.value.trim();else payload.text=elements.text.value.trim();
   if(isUrl&&!payload.subscriptionUrl)return showError(t('askUrl'));if(!isUrl&&!payload.text)return showError(t('askText'));
   const previousGeneration=state.activityGeneration;let generation=previousGeneration;let accepted=false;let declined=false;
@@ -484,6 +484,16 @@ elements.history.addEventListener('click', async (event) => {
     try { const job = await api(`/api/jobs/${encodeURIComponent(rescan.dataset.rescanJob)}/rescan`,options); await monitorJob(job); }
     catch(error) { showError(error.message); elements.progress.hidden = true; }
     finally { setBusy(false); rescan.disabled = false; }
+    return;
+  }
+  const resume = event.target.closest('[data-resume-job]');
+  if (resume) {
+    if (state.busy) return;
+    setBusy(true, 'audit'); resume.disabled = true; showError(''); elements.progress.hidden = false;
+    setProgress({id:'',done:0,total:0,success:0,finished:false},t('reading'));
+    try { const job = await api(`/api/jobs/${encodeURIComponent(resume.dataset.resumeJob)}/resume`, { method:'POST' }); await monitorJob(job); }
+    catch (error) { showError(`${t('resumeError')}: ${error.message}`); elements.progress.hidden = true; }
+    finally { setBusy(false); resume.disabled = false; await loadHistory(); }
     return;
   }
   const button = event.target.closest('[data-open-job]');

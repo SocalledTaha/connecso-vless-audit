@@ -57,8 +57,10 @@ export async function recommendedXrayWorkers() {
       if (Number.isFinite(limit) && limit < 2 ** 60 && Number.isFinite(usage)) available = Math.min(available, Math.max(0, limit - usage));
     } catch {}
   }
-  const reserved = 640 * MiB;
-  const budgetPerWorker = 384 * MiB;
+  // Xray's worker process is shared by up to ten route checks. Keep a real
+  // system reserve, but don't budget hundreds of MiB for each lightweight worker.
+  const reserved = 512 * MiB;
+  const budgetPerWorker = 80 * MiB;
   return Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker) || 1));
 }
 
@@ -284,13 +286,20 @@ async function testThroughSocks(config, base, port, options = {}) {
     // Keep the display honest: this is an HTTP RTT/TTFB measurement, not ICMP ping.
     base.ms = firstByteMs ?? Math.round(performance.now() - started);
     if (checkExit) {
-      const ipResult = await execFileAsync('curl', [
-        '-fsS', '--connect-timeout', '5', '--max-time', '9',
-        '-x', 'socks5h://127.0.0.1:' + port, 'https://api.ipify.org',
-      ], { timeout: 10500, maxBuffer: 1024 * 1024, ...(options.signal ? { signal: options.signal } : {}) });
-      base.exit = String(ipResult.stdout).trim();
+      try {
+        const ipResult = await execFileAsync('curl', [
+          '-fsS', '--connect-timeout', '5', '--max-time', '9',
+          '-x', 'socks5h://127.0.0.1:' + port, 'https://api.ipify.org',
+        ], { timeout: 10500, maxBuffer: 1024 * 1024, ...(options.signal ? { signal: options.signal } : {}) });
+        base.exit = String(ipResult.stdout).trim();
+      } catch (error) {
+        if (options.signal?.aborted) throw options.signal.reason || error;
+        // Exit-IP lookup is supplementary; a successful HTTPS RTT still proves
+        // that the route works even if the IP echo service is unavailable.
+        base.exit = '';
+      }
     }
-    base.ok = base.httpStatus >= 200 && base.httpStatus < 400 && (!checkExit || Boolean(base.exit));
+    base.ok = base.httpStatus >= 200 && base.httpStatus < 400;
     if (!base.ok) base.error = 'پاسخ HTTPS از مسیر این کانفیگ دریافت نشد.';
     else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port, options.signal)));
   } catch (error) {

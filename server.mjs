@@ -170,7 +170,6 @@ function summary(job) {
     favorite: Boolean(job.favorite),
     total: job.total,
     available: job.available,
-    offset: job.offset,
     batchSize: AUTO_BATCH_SIZE,
     workerCount: Number(job.workerCount) || 0,
     done: job.done,
@@ -180,6 +179,8 @@ function summary(job) {
     interrupted: Boolean(job.interrupted),
     error: job.error || '',
     canRescan: true,
+    canResume: Boolean(job.finished && job.interrupted && job.done < job.total
+      && ((Array.isArray(job.scanConfigs) && job.scanConfigs.length) || job.subscriptionUrl)),
     hasSubscriptionUrl: Boolean(job.subscriptionUrl),
     subscriptionUrl: job.subscriptionUrl || '',
     needsRescanUrl: Boolean(!job.subscriptionUrl && !job.results.some((item) => item.uri)),
@@ -241,6 +242,50 @@ function launchAudit(job, configs) {
   });
 }
 
+async function repairSavedCountries() {
+  for (const job of jobs.values()) {
+    if (!job.finished) continue;
+    const missing = job.results.filter((item) => item.ip && (!item.country || !item.countryCode));
+    if (!missing.length) continue;
+    const countries = await geoMap(missing.map((item) => item.ip));
+    let changed = false;
+    for (const item of missing) {
+      const location = countries[item.ip];
+      if (!location) continue;
+      item.country = typeof location === 'string' ? location : location.country || item.country || '';
+      item.countryCode = typeof location === 'object' ? location.countryCode || item.countryCode || '' : item.countryCode || '';
+      changed = true;
+    }
+    if (changed) await saveJob(RESULTS, job);
+  }
+}
+
+async function resumeJob(job) {
+  let configs = Array.isArray(job.scanConfigs) && job.scanConfigs.length ? job.scanConfigs : null;
+  if (!configs && job.subscriptionUrl) {
+    const text = await fetchSubscription(job.subscriptionUrl);
+    configs = filterProtocols(parseSubscription(text), job.protocolIds || [...SUPPORTED_PROTOCOL_IDS])
+      .slice(job.offset || 0, (job.offset || 0) + MAX_CONFIGS_PER_AUDIT);
+  }
+  if (!configs?.length) throw new Error('دادهٔ لازم برای ادامهٔ این بررسی در سابقه پیدا نشد.');
+  job.scanConfigs = configs;
+  job.total = configs.length;
+  job.done = Math.min(Number(job.done) || 0, configs.length);
+  job.checkedIndexes = Array.isArray(job.checkedIndexes)
+    ? job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < configs.length)
+    : Array.from({ length: job.done }, (_, index) => index);
+  job.done = new Set(job.checkedIndexes).size;
+  job.error = '';
+  job.finished = false;
+  job.interrupted = false;
+  job.cancelled = false;
+  job.resumeEligible = true;
+  job.recoveryRetries = 0;
+  await saveJob(RESULTS, job);
+  launchAudit(job, configs);
+  return summary(job);
+}
+
 async function runJob(job, configs, operation = null) {
   const signal = operation?.controller.signal;
   job.error = '';
@@ -255,6 +300,16 @@ async function runJob(job, configs, operation = null) {
     }
     const countries = await geoMap(addresses);
     if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
+    let countryRepairChanged = false;
+    for (const item of job.results) {
+      if (!item.ip || (item.country && item.countryCode)) continue;
+      const location = countries[item.ip];
+      if (!location) continue;
+      item.country = typeof location === 'string' ? location : location.country || item.country || '';
+      item.countryCode = typeof location === 'object' ? location.countryCode || item.countryCode || '' : item.countryCode || '';
+      countryRepairChanged = true;
+    }
+    if (countryRepairChanged) await saveJob(RESULTS, job);
     const batchSize = AUTO_BATCH_SIZE;
     const checked = new Set(Array.isArray(job.checkedIndexes)
       ? job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < configs.length)
@@ -437,7 +492,7 @@ async function route(request, response) {
   if (request.method === 'GET' && url.pathname === '/assets/login.js') {
     const body = await readFile(path.join(PUBLIC, 'login.js'));
     headers(response, 'text/javascript; charset=utf-8');
-    response.writeHead(200, { 'Content-Length': body.length });
+    response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'no-cache, must-revalidate' });
     response.end(body);
     return;
   }
@@ -472,6 +527,15 @@ async function route(request, response) {
     try { return sendJson(response, 200, JSON.parse(await readFile(UPDATE_STATUS, 'utf8'))); }
     catch (error) { if (error.code === 'ENOENT') return sendJson(response, 200, { state: 'idle' }); throw error; }
   }
+  const resumeMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/resume$/);
+  if (request.method === 'POST' && resumeMatch) {
+    const job = jobs.get(resumeMatch[1]);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    if (activeJob) return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
+    if (!(job.finished && job.interrupted && job.done < job.total)) return fail(response, 409, 'این بررسی مورد ناتمامی برای ادامه ندارد.');
+    try { return sendJson(response, 202, await resumeJob(job)); }
+    catch (error) { return fail(response, 400, error.message || 'ادامهٔ بررسی ممکن نشد.'); }
+  }
   if (request.method === 'POST' && url.pathname === '/api/update') {
     try { await readFile('/etc/systemd/system/vless-audit-self-update.path'); }
     catch { return fail(response, 503, 'به‌روزرسانی داخل پنل هنوز در نصب این نسخه فعال نشده است.'); }
@@ -482,7 +546,7 @@ async function route(request, response) {
     const id = crypto.randomBytes(10).toString('hex');
     const temporary = UPDATE_REQUEST + '.' + id + '.tmp';
     await writeFile(temporary, JSON.stringify({ id, requestedAt: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
-    await writeFile(UPDATE_STATUS, JSON.stringify({ id, state:'queued', updatedAt:new Date().toISOString() }), { mode:0o600 });
+    await writeFile(UPDATE_STATUS, JSON.stringify({ id, state:'queued', message:'updateQueued', updatedAt:new Date().toISOString() }), { mode:0o600 });
     try { await rename(temporary, UPDATE_REQUEST); }
     catch (error) { await unlink(temporary).catch(() => {}); await writeFile(UPDATE_STATUS, JSON.stringify({ id, state:'failed', error:'درخواست به‌روزرسانی ثبت نشد.', updatedAt:new Date().toISOString() }), { mode:0o600 }); throw error; }
     return sendJson(response, 202, { id, state:'queued' });
@@ -490,7 +554,7 @@ async function route(request, response) {
   if (request.method === 'GET' && url.pathname === '/') {
     const body = await readFile(path.join(PUBLIC, 'index.html'));
     headers(response, 'text/html; charset=utf-8');
-    response.writeHead(200, { 'Content-Length': body.length });
+    response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'no-cache, must-revalidate' });
     response.end(body);
     return;
   }
@@ -506,7 +570,7 @@ async function route(request, response) {
     if (!asset && !flagMatch) return fail(response, 404, 'این فایل پیدا نشد.');
     const body = await readFile(path.join(PUBLIC, asset ? asset[0] : url.pathname.slice(1)));
     headers(response, asset ? asset[1] : 'image/svg+xml');
-    response.writeHead(200, { 'Content-Length': body.length });
+    response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'no-cache, must-revalidate' });
     response.end(body);
     return;
   }
@@ -733,5 +797,6 @@ server.requestTimeout = 20_000;
 server.keepAliveTimeout = 5_000;
 server.listen(PORT, HOST, () => {
   console.log('Connecso Outbound Audit listening on ' + HOST + ':' + PORT);
+  repairSavedCountries().catch((error) => console.error('saved country repair failed:', error.message));
   resumePendingJobs().catch((error) => console.error('audit resume failed:', error.message));
 });

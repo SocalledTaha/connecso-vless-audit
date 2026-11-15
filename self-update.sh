@@ -22,20 +22,20 @@ rm -f -- "$REQUEST_ACTIVE"
 status_written=0
 
 write_status() {
-  local state="$1" error="${2:-}" temp="$STATUS.tmp"
-  python3 - "$request_id" "$state" "$error" > "$temp" <<'PY'
+  local state="$1" error="${2:-}" message="${3:-}" temp="$STATUS.tmp"
+  python3 - "$request_id" "$state" "$error" "$message" > "$temp" <<'PY'
 import datetime,json,sys
-print(json.dumps({"id":sys.argv[1],"state":sys.argv[2],"error":sys.argv[3],"updatedAt":datetime.datetime.now(datetime.timezone.utc).isoformat()}))
+print(json.dumps({"id":sys.argv[1],"state":sys.argv[2],"error":sys.argv[3],"message":sys.argv[4],"updatedAt":datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 PY
   chown "$APP_NAME:$APP_NAME" "$temp"
   chmod 0640 "$temp"
   mv -f -- "$temp" "$STATUS"
 }
-fail() { status_written=1; write_status failed "$1"; exit 1; }
+fail() { status_written=1; write_status failed "$1" updateFailed; exit 1; }
 on_exit() { local code=$?; if (( code != 0 && status_written == 0 )); then write_status failed "Update process stopped unexpectedly." || true; fi; }
 trap on_exit EXIT
 
-write_status checking
+write_status checking "" updateChecking
 [[ -r "$STATE_FILE" ]] || fail "Installer state is missing."
 # The installer writes this root-owned file with shell-escaped values.
 # shellcheck disable=SC1090
@@ -47,11 +47,11 @@ PROJECT_DIR="${PROJECT_DIR:-}"
 branch="$(git -C "$PROJECT_DIR" branch --show-current)"
 [[ "$branch" == main ]] || fail "The source checkout is not on the main branch."
 
-write_status downloading
+write_status downloading "" updateDownloading
 git -C "$PROJECT_DIR" fetch --prune origin main >/dev/null 2>&1 || fail "Could not fetch the latest GitHub version."
 git -C "$PROJECT_DIR" merge --ff-only origin/main >/dev/null 2>&1 || fail "The local checkout cannot be updated safely."
 
-write_status installing
+write_status installing "" updatePreparing
 backup="$(mktemp /var/lib/vless-audit/panel-update-backup.XXXXXX.tar.gz)"
 backup_paths=(server.mjs src public)
 for item in package.json package-lock.json node_modules; do [[ -e "$APP_DIR/$item" ]] && backup_paths+=("$item"); done
@@ -68,6 +68,9 @@ if [[ -d "$PROJECT_DIR/public/assets" ]]; then
     install -D -o root -g "$APP_NAME" -m 0640 "$file" "$APP_DIR/$relative"
   done < <(find "$PROJECT_DIR/public/assets" -type f -print0)
 fi
+install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
+install -o root -g root -m 0755 "$PROJECT_DIR/self-update.sh" /usr/local/lib/connecso-tools/self-update.sh
+write_status installing "" updateDependencies
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
 [[ -x "$NPM_BIN" ]] || NPM_BIN="$(command -v npm || true)"
@@ -82,7 +85,7 @@ chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
 find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
 find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
 
-write_status restarting
+write_status restarting "" updateRestarting
 if ! systemctl restart "$APP_NAME.service"; then
   tar -C "$APP_DIR" -xzf "$backup"
   systemctl restart "$APP_NAME.service" || true
@@ -100,5 +103,5 @@ if ! systemctl is-active --quiet "$APP_NAME.service"; then
   fail "The updated panel did not become ready; the previous files were restored."
 fi
 rm -f -- "$backup"
-write_status complete
+write_status complete "" updateComplete
 status_written=1
