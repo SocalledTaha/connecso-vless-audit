@@ -24,13 +24,37 @@ export async function loadJobs(directory) {
           if (config) result.outbound = toPanelOutbound(config, result.name || config.name);
         }
       }
-      const hasRecoverableScan = (Array.isArray(job.scanConfigs) && job.scanConfigs.length) || Boolean(job.subscriptionUrl);
-      if (Number(job.done) < Number(job.total) && hasRecoverableScan) {
-        job.finished = false;
-        job.interrupted = true;
-      } else if (!job.finished) job.interrupted = true;
       jobs.set(job.id, job);
     } catch {}
+  }
+
+  // Older versions treated every incomplete history item as a restartable job.
+  // Only the newest recent legacy scan may be resumed once during migration.
+  const incomplete = [...jobs.values()].filter((job) => Number(job.done) < Number(job.total));
+  const createdAt = (job) => Date.parse(String(job.created || '').replace(' UTC', 'Z').replace(' ', 'T'));
+  const legacyRecent = incomplete
+    .filter((job) => !Object.hasOwn(job, 'resumeEligible'))
+    .filter((job) => Number.isFinite(createdAt(job)) && Date.now() - createdAt(job) <= 48 * 60 * 60 * 1000)
+    .sort((a, b) => createdAt(b) - createdAt(a))[0];
+  if (legacyRecent) legacyRecent.resumeEligible = true;
+
+  const resumable = incomplete
+    .filter((job) => job.resumeEligible && ((Array.isArray(job.scanConfigs) && job.scanConfigs.length) || job.subscriptionUrl))
+    .sort((a, b) => createdAt(b) - createdAt(a));
+  const resumeId = resumable[0]?.id;
+  for (const job of jobs.values()) {
+    const isIncomplete = Number(job.done) < Number(job.total);
+    job.resumeEligible = Boolean(isIncomplete && job.id === resumeId);
+    if (job.resumeEligible) {
+      job.finished = false;
+      job.interrupted = true;
+    } else if (isIncomplete) {
+      job.finished = true;
+      job.interrupted = true;
+    } else if (!job.finished) {
+      job.finished = true;
+      job.interrupted = false;
+    }
   }
   return jobs;
 }
@@ -61,6 +85,7 @@ export async function saveJob(directory, job) {
     ...(job.subscriptionUrl ? { subscriptionUrl: job.subscriptionUrl } : {}),
     done: job.done, success: job.success, finished: job.finished,
     interrupted: Boolean(job.interrupted), ...(job.message ? { message: job.message } : {}),
+    resumeEligible: Boolean(job.resumeEligible),
     ...(job.error ? { error: String(job.error).slice(0, 500) } : {}),
     results: job.results.filter((item) => item.ok),
   };

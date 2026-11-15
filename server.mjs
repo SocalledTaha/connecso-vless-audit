@@ -200,6 +200,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     success: 0,
     finished: selected.length === 0,
     interrupted: false,
+    resumeEligible: selected.length > 0,
     results: [],
     scanConfigs: selected,
     ...(message ? { message } : {}),
@@ -247,6 +248,7 @@ async function runJob(job, configs, startAt = 0, recoveryAttempt = 0) {
   }
   job.finished = true;
   job.interrupted = Boolean(job.error && job.done < job.total);
+  job.resumeEligible = job.done < job.total && Boolean(job.scanConfigs?.length);
   activeJob = null;
   await saveJob(RESULTS, job);
   if (job.done >= job.total) {
@@ -259,7 +261,7 @@ async function runJob(job, configs, startAt = 0, recoveryAttempt = 0) {
 async function resumePendingJobs() {
   if (activeJob) return;
   const pending = [...jobs.values()]
-    .filter((job) => !job.finished)
+    .filter((job) => job.resumeEligible && !job.finished)
     .sort((a, b) => String(a.created).localeCompare(String(b.created)));
   for (const job of pending) {
     activeJob = job.id;
@@ -280,6 +282,7 @@ async function resumePendingJobs() {
     if (!configs?.length) {
       job.finished = true;
       job.interrupted = true;
+      job.resumeEligible = false;
       activeJob = null;
       await saveJob(RESULTS, job);
       continue;
@@ -287,6 +290,7 @@ async function resumePendingJobs() {
     if (job.done >= configs.length) {
       job.finished = true;
       job.interrupted = false;
+      job.resumeEligible = false;
       job.scanConfigs = null;
       activeJob = null;
       await saveJob(RESULTS, job);
