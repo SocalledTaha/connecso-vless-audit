@@ -93,7 +93,7 @@ Object.assign(dictionaries.en, {
   endpointConnect:'Server → endpoint', stopInteractive:'Stop interactive check', interactiveBusy:'An interactive check is running',
 });
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', expandedUris:new Set(), serviceCatalog:[], serviceGroups:[], interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null, monitorTarget:'' };
+const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', expandedUris:new Set(), expandedServiceGroups:new Set(), serviceCatalog:[], serviceGroups:[], interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null, monitorTarget:'' };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -222,13 +222,14 @@ function servicesMarkup(item, index) {
   const inner = groups.map((group) => {
     const services = state.serviceCatalog.filter((service) => service.group === group.id);
     const groupName = state.lang === 'fa' ? group.fa : group.en;
-    return `<section class="service-group"><div class="service-group-heading"><strong>${escapeHtml(groupName)}</strong><span>${escapeHtml(serviceGroupSummary(item,group.id))}</span></div><div class="service-grid">${services.map((service) => {
+    const groupKey = `${item.uri}:${group.id}`;
+    return `<details class="service-group" data-service-group="${escapeHtml(group.id)}" data-uri="${escapeHtml(item.uri)}" ${state.expandedServiceGroups.has(groupKey) ? 'open' : ''}><summary class="service-group-heading"><strong>${escapeHtml(groupName)}</strong><span>${escapeHtml(serviceGroupSummary(item,group.id))}</span></summary><div class="service-grid">${services.map((service) => {
       const result = serviceStatus(item,service.id);
       const status = !result ? 'unknown' : result.ok ? 'ok' : 'bad';
       const detail = !result ? t('oldService') : result.status ? `${result.ok ? t('reachable') : t('unavailable')} · HTTP ${result.status}${result.ms != null ? ` · ${number(result.ms)} ms` : ''}` : t('noReply');
       const active = state.monitorTarget === `${item.uri}:${service.id}`;
       return `<button class="service-monitor ${status}${active ? ' monitoring' : ''}" type="button" data-monitor-index="${index}" data-monitor-id="${escapeHtml(service.id)}" data-uri="${escapeHtml(item.uri)}" title="${escapeHtml(`${service.name}: ${detail}`)}" aria-label="${escapeHtml(`${service.name}: ${detail}. ${active ? t('liveStop') : t('liveStart')}`)}"><span class="service-icon">${serviceIcon(service)}</span><span class="service-name">${escapeHtml(serviceName(service))}</span><span class="service-dot" aria-hidden="true"></span>${active ? `<span class="monitor-label">${escapeHtml(t('liveActive'))}</span>` : ''}</button>`;
-    }).join('')}</div></section>`;
+    }).join('')}</div></details>`;
   }).join('');
   const checkedCount = item.services?.length || 0;
   const count = item.services?.filter((service) => service.ok).length || 0;
@@ -647,6 +648,8 @@ elements.history.addEventListener('submit', async (event) => {
 elements.countries.addEventListener('click',(event)=>{
   const monitor=event.target.closest('[data-monitor-id]');if(monitor){const item=state.currentResults[Number(monitor.dataset.monitorIndex)];toggleLiveMonitor(item,monitor.dataset.monitorId);return;}
   const runServices=event.target.closest('[data-run-services]');if(runServices){event.preventDefault();const item=state.currentResults[Number(runServices.dataset.runServices)];startServiceSuite(item);return;}
+  const groupSummary=event.target.closest('.service-group > summary');
+  if(groupSummary){const group=groupSummary.parentElement;const key=`${group.dataset.uri}:${group.dataset.serviceGroup}`;window.setTimeout(()=>{if(group.open)state.expandedServiceGroups.add(key);else state.expandedServiceGroups.delete(key);},0);return;}
   const serviceSummary=event.target.closest('.service-details > summary');
   if(serviceSummary){const details=serviceSummary.parentElement;window.setTimeout(()=>{const item=state.currentResults[Number(details.dataset.serviceDetails)];if(details.open){state.expandedUris.add(item?.uri);startServiceSuite(item);}else state.expandedUris.delete(item?.uri);},0);return;}
   const tile=event.target.closest('.route-card');

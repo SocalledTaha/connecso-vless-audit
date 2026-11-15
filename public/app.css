@@ -34,6 +34,41 @@
 @media(max-width:700px){.layout{width:min(100% - 24px,560px)}.topbar{height:auto;min-height:60px;padding:9px 12px;gap:8px}.header-actions{gap:5px}.header-toggle{min-width:38px;padding:0 8px}.theme-toggle{gap:4px}.history-list{grid-template-columns:minmax(0,1fr)}.history-card-main{align-items:flex-start;flex-direction:column}.history-meta{width:100%}.history-actions{width:100%;justify-content:flex-start}.history-edit{grid-template-columns:minmax(0,1fr)}.history-edit-actions{justify-content:flex-start}.results-tools{flex-wrap:wrap}.search-box{width:100%;max-width:none;order:5}.view-tabs{max-width:100%}.country-card>summary{align-items:flex-start;flex-direction:column}.country-actions{justify-content:flex-start;width:100%}.result-item{grid-template-columns:20px minmax(0,1fr);align-items:start;gap:7px;padding:12px 2px}.result-item>.select-config{grid-column:1;grid-row:1}.result-item .result-primary{grid-column:2;grid-row:1;min-width:0}.result-item .result-primary-head{align-items:flex-start;gap:6px}.result-item .result-ping,.result-item .result-endpoint-ping,.result-item .result-exit{grid-column:2;grid-row:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface-2)}.result-item .result-stat small{display:inline;color:var(--muted);font-size:9px}.result-item .security-tag{grid-column:2;grid-row:auto;justify-self:start;max-width:100%;white-space:normal;overflow-wrap:anywhere}.result-item .connection-actions{grid-column:1/-1;grid-row:auto;justify-content:flex-start}.result-item .service-checks{grid-column:1/-1;grid-row:auto;margin-top:1px}.speed-test-wrap{flex-wrap:wrap}.speed-test-wrap small{width:100%}}
 @media(max-width:400px){.header-toggle{font-size:9px;padding:0 6px}.brand{gap:7px}.brand strong{font-size:14px}.brand small{font-size:8px}.country-actions .copy-button{padding:5px 6px}.service-checks{gap:4px}.service-badge{padding:3px 5px}}
 
+/* Route cards: stable metric rows with independently collapsible service groups. */
+.result-item.route-card{display:grid;grid-template-columns:24px minmax(0,1.65fr) repeat(3,minmax(92px,.48fr));grid-auto-flow:row;align-items:center;gap:10px 12px;padding:14px 14px;min-width:0}
+.result-item.route-card>.select-config{grid-column:1;grid-row:1;align-self:start;padding-top:5px}
+.result-item.route-card>.result-primary{grid-column:2;grid-row:1;min-width:0}
+.result-item.route-card>.result-ping{grid-column:3;grid-row:1}
+.result-item.route-card>.result-endpoint-ping{grid-column:4;grid-row:1}
+.result-item.route-card>.result-exit{grid-column:5;grid-row:1;display:block;min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.result-item.route-card>.security-tag{grid-column:2;grid-row:2;justify-self:start;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:start}
+.result-item.route-card>.connection-actions{grid-column:3/6;grid-row:2;justify-content:flex-end;min-width:0}
+.result-item.route-card>.service-details{grid-column:1/-1;grid-row:3;width:100%;min-width:0}
+.result-item.route-card .result-primary-head{flex-wrap:nowrap;min-width:0}
+.result-item.route-card .result-primary-head>strong{flex:1 1 auto;min-width:0}
+.result-item.route-card .result-flags{flex:none;max-width:none;overflow:visible}
+.result-item.route-card .result-primary code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-item.route-card .result-stat{min-width:0;padding:4px 5px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);font-size:14px;line-height:1.35}
+.result-item.route-card .result-stat small{font-size:9px}
+.result-item.route-card .result-exit small{display:block;white-space:normal}
+.result-item.route-card .connection-actions{gap:6px}
+.result-item.route-card .connection-actions .copy-button{padding:6px 9px}
+.service-details-body{display:flex;flex-direction:column;gap:6px}
+.service-group{padding:0;overflow:hidden}
+.service-group>summary{list-style:none;display:flex;align-items:center;gap:9px;min-height:38px;padding:7px 10px;cursor:pointer}
+.service-group>summary::-webkit-details-marker{display:none}
+.service-group>summary:before{content:'›';width:12px;color:var(--accent);font-size:16px;line-height:1;transition:transform .15s}
+.service-group[open]>summary:before{transform:rotate(90deg)}
+.service-group-heading{border:0;margin:0;padding:7px 10px;font-size:11px}
+.service-group-heading>strong{font-weight:700}
+.service-group-heading>span{margin-inline-start:auto}
+.service-group .service-grid{padding:0 10px 10px;gap:6px}
+.service-group .service-monitor{min-height:31px;padding:4px 8px}
+:root[data-theme="light"] .result-item.route-card .result-stat{background:#f4f8fb;border-color:#c6d7e1}
+@media(max-width:900px){.result-item.route-card{grid-template-columns:22px minmax(0,1fr) repeat(3,minmax(76px,.38fr));gap:9px 10px}.result-item.route-card>.result-primary{grid-column:2;grid-row:1}.result-item.route-card>.result-ping{grid-column:3;grid-row:1}.result-item.route-card>.result-endpoint-ping{grid-column:4;grid-row:1}.result-item.route-card>.result-exit{grid-column:5;grid-row:1}.result-item.route-card>.security-tag{grid-column:2/4;grid-row:2}.result-item.route-card>.connection-actions{grid-column:4/6;grid-row:2}}
+@media(max-width:650px){.result-item.route-card{grid-template-columns:20px minmax(0,1fr) minmax(0,1fr);gap:8px;padding:12px 9px}.result-item.route-card>.select-config{grid-column:1;grid-row:1}.result-item.route-card>.result-primary{grid-column:2/4;grid-row:1}.result-item.route-card>.result-ping{grid-column:2;grid-row:2;text-align:start}.result-item.route-card>.result-endpoint-ping{grid-column:3;grid-row:2;text-align:start}.result-item.route-card>.result-exit{grid-column:2/4;grid-row:3;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:start;padding:6px 9px;white-space:normal}.result-item.route-card>.result-exit small{white-space:nowrap}.result-item.route-card>.security-tag{grid-column:2/4;grid-row:4}.result-item.route-card>.connection-actions{grid-column:1/-1;grid-row:5;justify-content:flex-start}.result-item.route-card>.service-details{grid-column:1/-1;grid-row:6}.service-details>summary{min-height:42px;padding:8px 10px}.service-total{font-size:9px}.service-run{font-size:9px;padding:5px 7px}}
+@media(max-width:390px){.result-item.route-card .result-flags{max-width:92px;overflow:hidden}.result-item.route-card .connection-actions .copy-button{font-size:9px;padding:5px 7px}.result-item.route-card>.result-stat{font-size:12px}}
+
 /* Readable light controls, image flags, and saved-search metadata. */
 .country-flag{display:inline-block;width:18px;height:13px;object-fit:cover;border-radius:2px;flex:none;box-shadow:0 0 0 1px #102e401c}
 .country-filter .country-flag{width:19px;height:14px}
@@ -67,3 +102,16 @@
 @keyframes service-pulse{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 18%,transparent)}}
 @media(max-width:1000px){.route-card{grid-template-columns:18px minmax(180px,1fr) repeat(3,minmax(68px,.4fr));}.route-card .result-primary{grid-column:2}.route-card .result-ping,.route-card .result-endpoint-ping,.route-card .result-exit{grid-row:1}.route-card .security-tag{grid-column:2/4;grid-row:2}.route-card .connection-actions{grid-column:4/6;grid-row:2}.route-card .service-details{grid-column:1/-1}}
 @media(max-width:680px){.route-card{grid-template-columns:18px minmax(0,1fr) auto;gap:8px;padding:12px 9px}.route-card .result-primary{grid-column:2/4;grid-row:1}.route-card .result-ping{grid-column:2;grid-row:2}.route-card .result-endpoint-ping{grid-column:3;grid-row:2}.route-card .result-exit{grid-column:2/4;grid-row:3;display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border:1px solid var(--line);border-radius:8px}.route-card .security-tag{grid-column:2/4;grid-row:4}.route-card .connection-actions{grid-column:1/-1;grid-row:5;justify-content:flex-start}.route-card .service-details{grid-column:1/-1;grid-row:6}.service-details-body{grid-template-columns:1fr}.service-details>summary{gap:6px;flex-wrap:wrap}.service-total{margin-inline-start:0}.service-run{margin-inline-start:auto}.route-card .connection-actions .copy-button{padding:6px 8px}}
+
+/* Keep both connection timings visible and distinct on narrow screens. */
+@media(max-width:680px){
+  .result-item.route-card{grid-template-columns:20px minmax(0,1fr) minmax(0,1fr)!important;align-items:start}
+  .result-item.route-card>.select-config{grid-column:1!important;grid-row:1!important}
+  .result-item.route-card>.result-primary{grid-column:2/4!important;grid-row:1!important}
+  .result-item.route-card>.result-ping{grid-column:2!important;grid-row:2!important;display:flex!important}
+  .result-item.route-card>.result-endpoint-ping{grid-column:3!important;grid-row:2!important;display:flex!important}
+  .result-item.route-card>.result-exit{grid-column:2/4!important;grid-row:3!important}
+  .result-item.route-card>.security-tag{grid-column:2/4!important;grid-row:4!important}
+  .result-item.route-card>.connection-actions{grid-column:1/-1!important;grid-row:5!important}
+  .result-item.route-card>.service-details{grid-column:1/-1!important;grid-row:6!important}
+}
