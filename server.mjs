@@ -5,8 +5,9 @@ import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSubscription } from './src/vless.mjs';
-import { geoMap, publicAddresses, recommendedXrayWorkers, testBatch, testOne, testDownload } from './src/probe.mjs';
+import { geoMap, publicAddresses, recommendedXrayWorkers, testBatch, testOne, testDownload, openProbeSession } from './src/probe.mjs';
 import { loadJobs, saveJob } from './src/store.mjs';
+import { SERVICES, SERVICE_GROUPS } from './src/services.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
@@ -33,6 +34,8 @@ const jobs = await loadJobs(RESULTS);
 const MAX_RECOVERY_RETRIES = 5;
 let activeJob = null;
 let activeOperation = null;
+let activeInteractiveId = null;
+const interactiveTasks = new Map();
 const sessions = new Map();
 
 if (!PASSWORD) throw new Error('PANEL_PASSWORD تنظیم نشده است.');
@@ -199,8 +202,10 @@ async function beginJob(configs, offset, subscriptionUrl = '', message = '', sca
     offset,
     batchSize: AUTO_BATCH_SIZE,
     workerCount: 0,
-    checkExit: scanOptions.checkExit !== false,
-    serviceIds: Array.isArray(scanOptions.serviceIds) ? scanOptions.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
+    // The bulk pass is intentionally lightweight: route RTT and direct
+    // endpoint-connect time only. Service checks run on explicit interaction.
+    checkExit: false,
+    serviceIds: [],
     protocolIds: Array.isArray(scanOptions.protocolIds) ? scanOptions.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)) : [...SUPPORTED_PROTOCOL_IDS],
     done: 0,
     success: 0,
@@ -342,7 +347,7 @@ async function runJob(job, configs, operation = null) {
         for (let start = 0; start < partition.length; start += batchSize) {
           if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
           const batch = partition.slice(start, start + batchSize);
-          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true });
+          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: false, serviceIds: [], concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true });
           await persistBatch(results, batch.map((item) => item.index));
         }
         return null;
@@ -464,6 +469,163 @@ function publicHistory() {
     .map(summary);
 }
 
+function interactiveSummary(task) {
+  return {
+    id: task.id, kind: task.kind, jobId: task.jobId,
+    status: task.status, done: task.done || 0, total: task.total || 0,
+    serviceId: task.serviceId || '', result: task.result || null,
+    samples: task.samples || [], error: task.error || '',
+    updated: task.updated || new Date().toISOString(),
+  };
+}
+
+function pauseFor(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason || new Error('پایش متوقف شد.'));
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }
+    function abort() {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', abort);
+      reject(signal.reason || new Error('پایش متوقف شد.'));
+    }
+    signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
+function startInteractiveTask(kind, job, item, config, options = {}) {
+  if (activeInteractiveId) return null;
+  const task = {
+    id: crypto.randomBytes(12).toString('base64url'), kind, jobId: job.id,
+    uri: item.uri, serviceId: options.serviceId || '',
+    status: 'starting', done: 0, total: 0, result: null, samples: [],
+    controller: new AbortController(), updated: new Date().toISOString(),
+    ...(Array.isArray(options.entries) ? { entries: options.entries } : {}),
+  };
+  interactiveTasks.set(task.id, task);
+  activeInteractiveId = task.id;
+  while (interactiveTasks.size > 100) {
+    const [oldestId, oldest] = interactiveTasks.entries().next().value;
+    if (oldestId === activeInteractiveId) break;
+    interactiveTasks.delete(oldestId);
+  }
+  runInteractiveTask(task, job, item, config).catch((error) => {
+    task.error = error.message || 'بررسی تعاملی ناموفق بود.';
+    task.status = 'failed';
+  });
+  return task;
+}
+
+async function runInteractiveTask(task, job, item, config) {
+  const { signal } = task.controller;
+  let session;
+  try {
+    task.status = 'starting';
+    task.updated = new Date().toISOString();
+    const countries = item.ip ? { [item.ip]: { country: item.country || '', countryCode: item.countryCode || '' } } : {};
+    if (task.kind === 'ping-all') {
+      const entries = task.entries || [];
+      task.status = 'running';
+      task.total = entries.length;
+      for (let start = 0; start < entries.length; start += MAX_ROUTES_PER_XRAY) {
+        if (signal.aborted) throw signal.reason || new Error('بررسی لغو شد.');
+        const chunk = entries.slice(start, start + MAX_ROUTES_PER_XRAY);
+        const countryMap = Object.fromEntries(chunk.filter(({ item }) => item.ip).map(({ item }) => [item.ip, { country: item.country || '', countryCode: item.countryCode || '' }]));
+        const checks = await testBatch(chunk.map(({ config }) => config), countryMap, {
+          checkExit: false, checkServices: false, concurrency: Math.min(chunk.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true,
+        });
+        checks.forEach((check, index) => {
+          const { item } = chunk[index];
+          item.endpointConnectMs = check.endpointConnectMs ?? null;
+          item.pingCheck = {
+            ok: check.ok, ms: check.ms ?? null, endpointConnectMs: check.endpointConnectMs ?? null,
+            httpStatus: check.httpStatus || 0, timings: check.timings || null,
+            error: check.error || '', checked: new Date().toISOString(),
+          };
+        });
+        task.done += chunk.length;
+        task.result = { updated: task.done };
+        task.updated = new Date().toISOString();
+        await saveJob(RESULTS, job);
+      }
+    } else if (task.kind === 'download') {
+      task.status = 'running';
+      task.total = 5;
+      task.result = await testDownload(config);
+      item.speedCheck = { ...task.result, checked: new Date().toISOString() };
+      task.done = 5;
+      await saveJob(RESULTS, job);
+    } else {
+      session = await openProbeSession(config, countries, { signal });
+      const routePing = await session.route({ checkExit: false, checkServices: false, signal });
+      if (!routePing.ok) throw new Error(routePing.error || 'اتصال HTTPS از مسیر این کانفیگ برقرار نشد.');
+      item.endpointConnectMs = session.base.endpointConnectMs ?? null;
+      item.pingCheck = {
+        ok: routePing.ok, ms: routePing.ms ?? null,
+        endpointConnectMs: session.base.endpointConnectMs ?? null,
+        httpStatus: routePing.httpStatus || 0, timings: routePing.timings || null,
+        error: routePing.error || '', checked: new Date().toISOString(),
+      };
+      if (task.kind === 'services') {
+        task.status = 'running';
+        task.total = SERVICES.length;
+        const checks = await session.checkServices(SERVICES.map(({ id }) => id), signal, (done, total) => {
+          task.done = done; task.total = total; task.updated = new Date().toISOString();
+        });
+        item.services = checks.map((check) => ({ ...check, checked: new Date().toISOString() }));
+        item.servicesChecked = new Date().toISOString();
+        task.result = { pingCheck: item.pingCheck, endpointConnectMs: item.endpointConnectMs, services: item.services };
+        task.done = checks.length;
+        await saveJob(RESULTS, job);
+      } else if (task.kind === 'monitor') {
+        task.status = 'running';
+        task.total = 0;
+        const history = [];
+        let nextSampleAt = Date.now();
+        while (!signal.aborted) {
+          const waitMs = nextSampleAt - Date.now();
+          if (waitMs > 0) await pauseFor(waitMs, signal);
+          const check = await session.checkService(task.serviceId, signal);
+          const checked = new Date().toISOString();
+          const sample = { ...check, checked };
+          history.push(sample);
+          if (history.length > 120) history.shift();
+          task.samples = history;
+          task.done += 1;
+          task.result = sample;
+          task.updated = checked;
+          const serviceIndex = (item.services || []).findIndex((entry) => entry.id === task.serviceId);
+          if (serviceIndex >= 0) item.services[serviceIndex] = sample;
+          else item.services = [...(item.services || []), sample];
+          item.servicesChecked = checked;
+          await saveJob(RESULTS, job);
+          if (signal.aborted) break;
+          nextSampleAt += 5000;
+        }
+        task.status = 'stopped';
+        task.updated = new Date().toISOString();
+      }
+    }
+    if (!signal.aborted && task.status !== 'stopped') task.status = 'complete';
+  } catch (error) {
+    if (signal.aborted) {
+      task.status = 'stopped';
+    } else {
+      task.status = 'failed';
+      task.error = error.message || 'بررسی تعاملی ناموفق بود.';
+    }
+  } finally {
+    await session?.close();
+    task.updated = new Date().toISOString();
+    if (activeInteractiveId === task.id) activeInteractiveId = null;
+    await saveJob(RESULTS, job).catch((error) => console.error('could not save interactive result:', error.message));
+  }
+}
+
 async function route(request, response) {
   const url = new URL(request.url, 'https://localhost');
 
@@ -566,8 +728,9 @@ async function route(request, response) {
       '/assets/connecso-mark-pair.png': ['assets/connecso-mark-pair.png', 'image/png'],
     };
     const flagMatch = url.pathname.match(/^\/assets\/flags\/(?:[a-z]{2}|globe)\.svg$/);
+    const serviceIconMatch = url.pathname.match(/^\/assets\/services\/[a-z0-9-]{1,48}\.svg$/);
     const asset = assets[url.pathname];
-    if (!asset && !flagMatch) return fail(response, 404, 'این فایل پیدا نشد.');
+    if (!asset && !flagMatch && !serviceIconMatch) return fail(response, 404, 'این فایل پیدا نشد.');
     const body = await readFile(path.join(PUBLIC, asset ? asset[0] : url.pathname.slice(1)));
     headers(response, asset ? asset[1] : 'image/svg+xml');
     response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'no-cache, must-revalidate' });
@@ -577,8 +740,37 @@ async function route(request, response) {
   if (request.method === 'GET' && url.pathname === '/api/health') {
     return sendJson(response, 200, { ok: true, service: 'Connecso Outbound Audit', version: '2.1' });
   }
+  if (request.method === 'GET' && url.pathname === '/api/services') {
+    return sendJson(response, 200, {
+      groups: SERVICE_GROUPS,
+      services: SERVICES.map(({ id, group, name, icon, host }) => ({ id, group, name, icon, host })),
+    });
+  }
+  const interactiveMatch = url.pathname.match(/^\/api\/interactive\/([A-Za-z0-9_-]+)$/);
+  if (request.method === 'GET' && interactiveMatch) {
+    const task = interactiveTasks.get(interactiveMatch[1]);
+    return task ? sendJson(response, 200, interactiveSummary(task)) : fail(response, 404, 'این بررسی تعاملی پیدا نشد.');
+  }
+  const interactiveStopMatch = url.pathname.match(/^\/api\/interactive\/([A-Za-z0-9_-]+)\/stop$/);
+  if (request.method === 'POST' && interactiveStopMatch) {
+    const task = interactiveTasks.get(interactiveStopMatch[1]);
+    if (!task) return fail(response, 404, 'این بررسی تعاملی پیدا نشد.');
+    if (task.status === 'running' || task.status === 'starting') {
+      task.controller.abort(new Error('پایش توسط کاربر متوقف شد.'));
+      task.status = 'stopping';
+      task.updated = new Date().toISOString();
+    }
+    return sendJson(response, 202, interactiveSummary(task));
+  }
   if (request.method === 'GET' && url.pathname === '/api/history') {
     return sendJson(response, 200, publicHistory());
+  }
+  const auditStopMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/stop$/);
+  if (request.method === 'POST' && auditStopMatch) {
+    const operation = activeOperation;
+    if (!operation || operation.kind !== 'audit' || operation.jobId !== auditStopMatch[1]) return fail(response, 404, 'این اسکن در حال اجرا نیست.');
+    operation.controller.abort(new Error('اسکن با درخواست کاربر متوقف شد.'));
+    return sendJson(response, 202, { ok: true, stopping: true, id: auditStopMatch[1] });
   }
   const metadataMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/meta$/);
   if (request.method === 'PATCH' && metadataMatch) {
@@ -638,11 +830,43 @@ async function route(request, response) {
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
     return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds, protocolIds: previous.protocolIds }));
   }
+  const serviceCheckMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/services$/);
+  if (request.method === 'POST' && serviceCheckMatch) {
+    if (activeInteractiveId) return fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
+    const job = jobs.get(serviceCheckMatch[1]);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    let input;
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'درخواست معتبر نیست.'); }
+    const uri = String(input.uri || '');
+    const item = job.results.find((result) => result.ok && result.uri === uri);
+    const [config] = parseSubscription(uri);
+    if (!item || !config) return fail(response, 404, 'این کانفیگ در نتایج آماده پیدا نشد.');
+    const task = startInteractiveTask('services', job, item, config);
+    return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'بررسی تعاملی دیگری در حال اجراست.');
+  }
+  const monitorStartMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/monitor$/);
+  if (request.method === 'POST' && monitorStartMatch) {
+    if (activeInteractiveId) return fail(response, 409, 'ابتدا بررسی تعاملی جاری را متوقف کن.');
+    const job = jobs.get(monitorStartMatch[1]);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    let input;
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'درخواست معتبر نیست.'); }
+    const uri = String(input.uri || '');
+    const serviceId = String(input.serviceId || '');
+    const item = job.results.find((result) => result.ok && result.uri === uri);
+    const [config] = parseSubscription(uri);
+    if (!item || !config) return fail(response, 404, 'این کانفیگ در نتایج آماده پیدا نشد.');
+    if (!SERVICES.some((service) => service.id === serviceId)) return fail(response, 400, 'سرویس انتخاب‌شده معتبر نیست.');
+    const task = startInteractiveTask('monitor', job, item, config, { serviceId });
+    return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'بررسی تعاملی دیگری در حال اجراست.');
+  }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {
-    if (activeJob) return fail(response, 409, 'Another audit is running; retry after it finishes.');
+    if (activeInteractiveId) return fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
     const job = jobs.get(pingAllMatch[1]);
-    if (!job || !job.finished) return fail(response, 404, 'No completed audit was found.');
+    if (!job) return fail(response, 404, 'No audit was found.');
     let input;
     try { input = JSON.parse(await readBody(request)); }
     catch (error) { return fail(response, error.status || 400, error.message || 'Invalid request.'); }
@@ -655,43 +879,14 @@ async function route(request, response) {
       if (!item || !config) return fail(response, 400, 'A route does not belong to this audit.');
       selected.push({ uri, item, config });
     }
-    activeJob = 'ping-all-' + pingAllMatch[1];
-    const controller = new AbortController();
-    let finishOperation;
-    const done = new Promise((resolve) => { finishOperation = resolve; });
-    const operation = { kind: 'ping-all', controller, done };
-    activeOperation = operation;
-    try {
-      const updates = [];
-      for (let start = 0; start < selected.length; start += 20) {
-        const chunk = selected.slice(start, start + 20);
-        const countries = Object.fromEntries(chunk.filter(({item}) => item.ip).map(({item}) => [item.ip, item.country || '']));
-        const checks = await testBatch(chunk.map(({config}) => config), countries, { checkExit: false, checkServices: false, concurrency: 4, signal: controller.signal, throwBatchErrors: true });
-        checks.forEach((check, index) => {
-          const { uri, item } = chunk[index];
-          item.endpointPingMs = check.endpointPingMs ?? null;
-          item.pingCheck = { ok: check.ok, ms: check.ms ?? null, endpointPingMs: check.endpointPingMs ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
-          updates.push({ uri, pingCheck: item.pingCheck });
-        });
-        await saveJob(RESULTS, job);
-      }
-      return sendJson(response, 200, { results: updates });
-    } catch (error) {
-      if (controller.signal.aborted) return sendJson(response, 200, { cancelled: true, results: [] });
-      return fail(response, 502, error.message || 'Country ping checks failed.');
-    } finally {
-      if (activeOperation === operation) {
-        activeOperation = null;
-        activeJob = null;
-      }
-      finishOperation();
-    }
+    const task = startInteractiveTask('ping-all', job, selected[0].item, selected[0].config, { entries: selected });
+    return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
   }
   const routeAction = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/(ping|download)$/);
   if (request.method === 'POST' && routeAction) {
-    if (activeJob) return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
+    if (activeInteractiveId) return fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
     const job = jobs.get(routeAction[1]);
-    if (!job || !job.finished) return fail(response, 404, 'نتیجهٔ آماده‌ای برای این بررسی پیدا نشد.');
+    if (!job) return fail(response, 404, 'نتیجه‌ای برای این بررسی پیدا نشد.');
     let input;
     try { input = JSON.parse(await readBody(request)); }
     catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'درخواست معتبر نیست.'); }
@@ -702,22 +897,21 @@ async function route(request, response) {
     if (!config) return fail(response, 400, 'کانفیگ معتبر نیست.');
     const item = job.results[resultIndex];
     const countryMap = item.ip ? { [item.ip]: item.country || '' } : {};
-    activeJob = 'single-' + routeAction[2];
+    if (routeAction[2] === 'download') {
+      const task = startInteractiveTask('download', job, item, config);
+      return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
+    }
+    activeInteractiveId = 'ping-' + crypto.randomBytes(8).toString('hex');
     try {
-      if (routeAction[2] === 'ping') {
-        const check = await testOne(config, countryMap, { checkExit: false, checkServices: false });
-        item.endpointPingMs = check.endpointPingMs ?? null;
-        item.pingCheck = { ok: check.ok, ms: check.ms ?? null, endpointPingMs: check.endpointPingMs ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
-        await saveJob(RESULTS, job);
-        return sendJson(response, 200, item.pingCheck);
-      }
-      item.speedCheck = { ...(await testDownload(config)), checked: new Date().toISOString() };
+      const check = await testOne(config, countryMap, { checkExit: false, checkServices: false });
+      item.endpointConnectMs = check.endpointConnectMs ?? null;
+      item.pingCheck = { ok: check.ok, ms: check.ms ?? null, endpointConnectMs: check.endpointConnectMs ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
       await saveJob(RESULTS, job);
-      return sendJson(response, 200, item.speedCheck);
+      return sendJson(response, 200, item.pingCheck);
     } catch (error) {
       return fail(response, 502, error.message || 'بررسی کانفیگ انجام نشد.');
     } finally {
-      activeJob = null;
+      activeInteractiveId = null;
     }
   }
   const jobMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)$/);
@@ -761,7 +955,7 @@ async function route(request, response) {
     const offset = Math.max(0, Number.parseInt(input.offset || '0', 10) || 0);
     if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های انتخاب‌شده بیشتر است.');
     const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
-    const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
+    const serviceIds = [];
     if (activeJob) {
       if (['audit', 'ping-all'].includes(activeOperation?.kind) && (input.replaceCheck === true || input.replacePingAll === true)) {
         const previousOperation = activeOperation;

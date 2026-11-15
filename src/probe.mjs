@@ -14,15 +14,10 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import maxmind from 'maxmind';
 import { buildXrayBatchConfig, buildXrayConfig, isPublicAddress, toPanelOutbound } from './vless.mjs';
+import { SERVICES, SERVICE_BY_ID } from './services.mjs';
 
 const execFileAsync = promisify(execFile);
 const XRAY = process.env.XRAY_BIN || '/usr/local/x-ui/bin/xray-linux-amd64';
-const SERVICE_TARGETS = [
-  { id: 'gemini', name: 'Gemini', url: 'https://gemini.google.com/' },
-  { id: 'youtube', name: 'YouTube', url: 'https://www.youtube.com/generate_204' },
-  { id: 'instagram', name: 'Instagram', url: 'https://www.instagram.com/robots.txt' },
-  { id: 'telegram', name: 'Telegram', url: 'https://telegram.org/' },
-];
 const RTT_TARGET = 'https://www.youtube.com/generate_204';
 const GEO_DB_PATH = process.env.GEOIP_DB_FILE || path.join(path.dirname(process.env.RESULTS_DIR || '/opt/vless-audit/results'), 'geo', 'dbip-country-lite.mmdb');
 const GEO_DB_MAX_AGE = 35 * 24 * 60 * 60 * 1000;
@@ -59,7 +54,9 @@ export async function recommendedXrayWorkers() {
   }
   // Xray's worker process is shared by up to ten route checks. Keep a real
   // system reserve, but don't budget hundreds of MiB for each lightweight worker.
-  const reserved = 512 * MiB;
+  // Keep headroom for one dedicated interactive Xray while a background scan
+  // runs on the automatically selected worker pool.
+  const reserved = 640 * MiB;
   const budgetPerWorker = 80 * MiB;
   return Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker) || 1));
 }
@@ -74,18 +71,24 @@ export async function publicAddresses(host) {
   return addresses.length && addresses.every(isPublicAddress) ? addresses : [];
 }
 
-async function directEndpointPing(address) {
-  if (!address || !isPublicAddress(address)) return null;
-  try {
-    const { stdout } = await execFileAsync('ping', ['-n', '-c', '1', '-W', '1', address], { timeout: 1800, maxBuffer: 16_384 });
-    const match = String(stdout).match(/time\s*([=<])\s*([\d.]+)\s*ms/i);
-    if (!match) return null;
-    const value = Number(match[2]);
-    if (!Number.isFinite(value)) return null;
-    return match[1] === '<' ? Math.min(value, 0.5) : value;
-  } catch {
-    return null;
-  }
+async function measureEndpointConnection(address, port, protocol) {
+  // These transports use UDP. A TCP connect would measure the wrong path.
+  if (!address || !isPublicAddress(address) || ['hysteria2', 'wireguard', 'masque'].includes(protocol)) return null;
+  return new Promise((resolve) => {
+    const started = performance.now();
+    const socket = connect({ host: address, port: Number(port) });
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(1400);
+    socket.once('connect', () => finish(Math.round((performance.now() - started) * 10) / 10));
+    socket.once('timeout', () => finish(null));
+    socket.once('error', () => finish(null));
+  });
 }
 
 export async function geoMap(addresses) {
@@ -184,7 +187,7 @@ async function refreshGeoDatabase() {
 async function checkService(target, port, signal) {
   try {
     const result = await execFileAsync('curl', [
-      '-sS', '-o', '/dev/null', '--connect-timeout', '4', '--max-time', '7',
+      '-sS', '-L', '--max-redirs', '3', '-o', '/dev/null', '--connect-timeout', '4', '--max-time', '7',
       '-x', 'socks5h://127.0.0.1:' + port,
       '-w', '%{http_code}\t%{time_total}', target.url,
     ], { timeout: 8000, maxBuffer: 1024 * 1024, ...(signal ? { signal } : {}) });
@@ -194,14 +197,40 @@ async function checkService(target, port, signal) {
     return {
       id: target.id,
       name: target.name,
-      ok: status >= 200 && status < 400,
+      group: target.group,
+      ok: status >= 200 && status < 500,
       status,
       ms: Number.isFinite(seconds) ? Math.round(seconds * 1000) : null,
     };
   } catch (error) {
     if (signal?.aborted) throw signal.reason || error;
-    return { id: target.id, name: target.name, ok: false, status: 0, ms: null };
+    return { id: target.id, name: target.name, group: target.group, ok: false, status: 0, ms: null };
   }
+}
+
+export async function checkServiceAtPort(port, serviceId, signal) {
+  const target = SERVICE_BY_ID.get(serviceId);
+  if (!target) throw new Error('سرویس انتخاب‌شده در فهرست وجود ندارد.');
+  return checkService(target, port, signal);
+}
+
+export async function checkServicesAtPort(port, serviceIds = SERVICES.map(({ id }) => id), signal, onProgress = () => {}) {
+  const ids = [...new Set(serviceIds)].filter((id) => SERVICE_BY_ID.has(id));
+  const targets = ids.map((id) => SERVICE_BY_ID.get(id));
+  const results = new Array(targets.length);
+  let cursor = 0;
+  let completed = 0;
+  const workers = Math.min(8, targets.length);
+  await Promise.all(Array.from({ length: workers }, async () => {
+    while (cursor < targets.length) {
+      if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
+      const index = cursor++;
+      results[index] = await checkService(targets[index], port, signal);
+      completed += 1;
+      onProgress(completed, targets.length, results[index]);
+    }
+  }));
+  return results;
 }
 
 async function reservePort() {
@@ -263,7 +292,7 @@ function resultBase(config, countries) {
 
 async function testThroughSocks(config, base, port, options = {}) {
   const checkExit = options.checkExit !== false;
-  const serviceIds = Array.isArray(options.serviceIds) ? new Set(options.serviceIds) : options.checkServices === false ? new Set() : new Set(SERVICE_TARGETS.map((item) => item.id));
+  const serviceIds = Array.isArray(options.serviceIds) ? new Set(options.serviceIds) : new Set();
   try {
     const started = performance.now();
     const result = await execFileAsync('curl', [
@@ -301,7 +330,7 @@ async function testThroughSocks(config, base, port, options = {}) {
     }
     base.ok = base.httpStatus >= 200 && base.httpStatus < 400;
     if (!base.ok) base.error = 'پاسخ HTTPS از مسیر این کانفیگ دریافت نشد.';
-    else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port, options.signal)));
+    else if (serviceIds.size) base.services = await checkServicesAtPort(port, [...serviceIds], options.signal);
   } catch (error) {
     if (options.signal?.aborted) throw options.signal.reason || error;
     base.error = error.message || 'اتصال HTTPS از مسیر کانفیگ ناموفق بود.';
@@ -332,21 +361,19 @@ async function stopXray(child, directory) {
   await rm(directory, { recursive: true, force: true });
 }
 
-export async function testOne(config, countries, options = {}) {
+export async function openProbeSession(config, countries = {}, options = {}) {
   const base = resultBase(config, countries);
   let addresses;
   try {
     addresses = await publicAddresses(config.host);
   } catch {
-    base.error = 'DNS مقصد پاسخ نداد.';
-    return base;
+    throw new Error('DNS مقصد پاسخ نداد.');
   }
   if (!addresses.length) {
-    base.error = 'IP عمومی برای مقصد پیدا نشد.';
-    return base;
+    throw new Error('IP عمومی برای مقصد پیدا نشد.');
   }
   base.ip = addresses.slice().sort()[0];
-  base.endpointPingMs = await directEndpointPing(base.ip);
+  base.endpointConnectMs = await measureEndpointConnection(base.ip, config.port, config.protocol);
   const location = countries[base.ip];
   base.country = typeof location === 'string' ? location : location?.country || '';
   base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';
@@ -357,13 +384,32 @@ export async function testOne(config, countries, options = {}) {
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
-    await waitForSocks(child, port);
-    return await testThroughSocks(config, base, port, options);
+    await waitForSocks(child, port, 3500, options.signal);
+    return {
+      base,
+      port,
+      route: (routeOptions = {}) => testThroughSocks(config, base, port, routeOptions),
+      checkService: (serviceId, signal = options.signal) => checkServiceAtPort(port, serviceId, signal),
+      checkServices: (serviceIds = SERVICES.map(({ id }) => id), signal = options.signal, onProgress) => checkServicesAtPort(port, serviceIds, signal, onProgress),
+      close: () => stopXray(child, directory),
+    };
   } catch (error) {
+    await stopXray(child, directory);
+    throw error;
+  }
+}
+
+export async function testOne(config, countries, options = {}) {
+  let session;
+  try {
+    session = await openProbeSession(config, countries, options);
+    return await session.route(options);
+  } catch (error) {
+    const base = resultBase(config, countries);
     base.error = error.message || 'Xray outbound راه نیفتاد.';
     return base;
   } finally {
-    await stopXray(child, directory);
+    await session?.close();
   }
 }
 
@@ -381,7 +427,7 @@ export async function testBatch(configs, countries, options = {}) {
         return;
       }
       base.ip = addresses.slice().sort()[0];
-      base.endpointPingMs = await directEndpointPing(base.ip);
+      base.endpointConnectMs = await measureEndpointConnection(base.ip, config.port, config.protocol);
       const location = countries[base.ip];
       base.country = typeof location === 'string' ? location : location?.country || '';
       base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';

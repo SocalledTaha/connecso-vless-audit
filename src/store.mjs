@@ -61,7 +61,17 @@ export async function loadJobs(directory) {
   return jobs;
 }
 
+const saveQueues = new Map();
+
 export async function saveJob(directory, job) {
+  const previous = saveQueues.get(job.id) || Promise.resolve();
+  const next = previous.catch(() => {}).then(() => writeSavedJob(directory, job));
+  saveQueues.set(job.id, next);
+  try { await next; }
+  finally { if (saveQueues.get(job.id) === next) saveQueues.delete(job.id); }
+}
+
+async function writeSavedJob(directory, job) {
   await mkdir(directory, { recursive: true, mode: 0o700 });
   if (Array.isArray(job.scanConfigs) && job.scanConfigs.length) {
     const scanTarget = path.join(directory, job.id + '.scan.json');

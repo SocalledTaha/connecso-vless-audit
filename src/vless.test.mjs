@@ -40,8 +40,8 @@ test('Panel export is a single VLESS outbound with preserved Reality fields', ()
   const outbound = toPanelOutbound(config);
   assert.equal(outbound.tag, 'UK one');
   assert.equal(outbound.protocol, 'vless');
-  assert.equal(outbound.settings.address, 'edge.example.net');
-  assert.equal(outbound.settings.id, uuid);
+  assert.equal(outbound.settings.vnext[0].address, 'edge.example.net');
+  assert.equal(outbound.settings.vnext[0].users[0].id, uuid);
   assert.equal(outbound.streamSettings.security, 'reality');
   assert.equal(outbound.streamSettings.realitySettings.publicKey, 'pk123');
   assert.equal(outbound.streamSettings.wsSettings.path, '/course');

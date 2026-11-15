@@ -9,13 +9,13 @@ const dictionaries = {
   fa: {
     skip:'رفتن به بخش اصلی', private:'محیط خصوصی', xray:'تست واقعی با Xray', darkTheme:'تیره', lightTheme:'روشن', logout:'خروج', toolTitle:'بررسی اوتباند', toolSubtitle:'بررسی، مقایسه و آماده‌سازی خروجی JSON', scanOptions:'گزینه‌های بررسی', checkExit:'بررسی IP خروجی', protocolFilters:'\u0641\u06cc\u0644\u062a\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u067e\u0631\u0648\u062a\u06a9\u0644', protocolSupportHint:'WireGuard \u0648 MASQUE \u0628\u0627 JSON \u062e\u0631\u0648\u062c\u06cc Xray \u0642\u0627\u0628\u0644 \u0628\u0631\u0631\u0633\u06cc\u200c\u0627\u0646\u062f\u061b AmneziaWG \u0628\u0647 \u0647\u0633\u062a\u0647\u0654 \u062c\u062f\u0627\u06af\u0627\u0646\u0647 \u0646\u06cc\u0627\u0632 \u062f\u0627\u0631\u062f.', exitServiceOptions:'\u0628\u0631\u0631\u0633\u06cc IP \u062e\u0631\u0648\u062c\u06cc \u0648 \u0633\u0631\u0648\u06cc\u0633\u200c\u0647\u0627', noProtocols:'\u062d\u062f\u0627\u0642\u0644 \u06cc\u06a9 \u067e\u0631\u0648\u062a\u06a9\u0644 \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646.',
     eyebrow:'ابزار بررسی اشتراک', headline:'مسیر سالم را<br><span>سریع و شفاف پیدا کن.</span>',
-    intro:'اتصال‌های VLESS، Shadowsocks و Hysteria2 را از مسیر واقعی بررسی کن؛ RTT، کشور IP خروجی و دسترسی HTTPS به سرویس‌ها را ببین.',
+    intro:'ابتدا RTT مسیر و اتصال مستقیم سرور به مقصد را ببین؛ بعد جزئیات هر کانکشن و دسترسی سرویس‌ها را جداگانه بررسی کن.',
     proof1:'TLS یا Reality', proof2:'آزمون با Xray', proof3:'RTT و سرویس‌ها', step1:'گام اول', sourceTitle:'منبع کانفیگ را وارد کن', encrypted:'ارتباط رمزگذاری‌شده',
     tabUrl:'لینک اشتراک', tabText:'متن کانفیگ', urlLabel:'آدرس HTTPS اشتراک', urlHint:'آدرس فقط برای دریافت همین نوبت بررسی می‌شود.',
     textLabel:'کانفیگ‌ها یا متن اشتراک', textHint:'متن ساده یا Base64 پذیرفته می‌شود.',
     batchHint:'تعداد workerها با توجه به رم آزاد سرور خودکار تنظیم می‌شود.', start:'شروع بررسی', busy:'در حال بررسی…',
     whatChecked:'چه چیزی بررسی می‌شود؟', methodTitle:'پاسخ واقعی،<br>معیار موفقیت است.',
-    methodCopy:'Xray از هر کانفیگ وصل می‌شود و درخواست‌های HTTPS را از همان تونل می‌فرستد.',
+    methodCopy:'اسکن اصلی فقط RTT مسیر را می‌سنجد. بررسی سرویس‌ها و پایش زنده با هستهٔ جداگانه و به درخواست تو اجرا می‌شوند.',
     encryptedOnly:'رمزنگاری', tlsRealityOnly:'TLS، Reality یا رمزنگاری پروتکل', fullConnection:'اتصال کامل', httpsReply:'پاسخ HTTPS از مسیر تونل', serviceAccess:'دسترسی سرویس',
     privacy:'بررسی سرویس‌ها فقط دسترسی HTTPS را می‌سنجد و ورود به حساب را آزمایش نمی‌کند.', running:'بررسی در حال اجرا',
     connecting:'در حال اتصال به کانفیگ‌ها', interrupted:'بررسی قبلی نیمه‌کاره ماند', completed:'بررسی تمام شد',
@@ -45,13 +45,13 @@ const dictionaries = {
   en: {
     skip:'Skip to main content', private:'Private workspace', xray:'Live Xray checks', darkTheme:'Dark', lightTheme:'Light', logout:'Log out', toolTitle:'Outbound checks', toolSubtitle:'Check, compare, and prepare outbound JSON', scanOptions:'Check options', checkExit:'Check exit IP', protocolFilters:'Filter by protocol', protocolSupportHint:'WireGuard and MASQUE can be tested from Xray outbound JSON. AmneziaWG needs a separate core.', exitServiceOptions:'Exit IP and service checks', noProtocols:'Select at least one protocol.',
     eyebrow:'Subscription route audit', headline:'Find working routes<br><span>quickly and clearly.</span>',
-    intro:'Test VLESS, Shadowsocks, and Hysteria2 through a real route. Review RTT, exit IP country, and HTTPS reachability for popular services.',
+    intro:'See route RTT and direct server to endpoint connectivity first. Then inspect each connection and its service reachability on demand.',
     proof1:'TLS or Reality', proof2:'Tested with Xray', proof3:'RTT and services', step1:'STEP 1', sourceTitle:'Choose a configuration source', encrypted:'Encrypted connection',
     tabUrl:'Subscription URL', tabText:'Paste configs', urlLabel:'HTTPS subscription URL', urlHint:'The URL is fetched only for this audit.',
     textLabel:'Configurations or subscription text', textHint:'Plain text or Base64 is accepted.',
     batchHint:'Worker count is automatically adjusted to available server memory.', start:'Start audit', busy:'Checking…',
     whatChecked:'What gets checked?', methodTitle:'A real response<br>is the success signal.',
-    methodCopy:'Xray connects with each config and sends HTTPS requests through that same tunnel.',
+    methodCopy:'The main scan measures route RTT only. Service checks and live monitoring run on a separate worker when requested.',
     encryptedOnly:'Encryption', tlsRealityOnly:'TLS, Reality, or protocol encryption', fullConnection:'Full connection', httpsReply:'HTTPS reply through the tunnel', serviceAccess:'Service access',
     privacy:'Service checks measure HTTPS reachability only. They do not sign in to accounts.', running:'AUDIT IN PROGRESS',
     connecting:'Connecting through configurations', interrupted:'Previous audit was interrupted', completed:'Audit complete',
@@ -78,8 +78,22 @@ const dictionaries = {
     themeLabel:'Toggle theme', langLabel:'تغییر زبان به فارسی', healthError:'Could not connect to the audit service',
   },
 };
+Object.assign(dictionaries.fa, {
+  stopAudit:'توقف اسکن', endpointPing:'سرور ← مقصد', endpointPingTip:'زمان برقراری اتصال TCP از سرور بررسی تا سرور مقصد؛ برای مسیرهای UDP قابل سنجش نیست.',
+  fullServiceCheck:'بررسی همهٔ سرویس‌ها', checkingServices:'در حال بررسی سرویس‌ها…', servicesPending:'برای دریافت نتیجه، جزئیات را باز کن.',
+  liveStart:'پایش زنده', liveStop:'توقف پایش', liveActive:'پایش زنده · هر ۵ ثانیه', serviceGroups:'بررسی سرویس‌ها', groupReachable:(ok,total)=>`${number(ok)} از ${number(total)} پاسخ‌گو`,
+  groupProgress:(ok,checked,total)=>`${number(ok)} پاسخ‌گو · ${number(checked)} از ${number(total)} بررسی‌شده`,
+  endpointConnect:'سرور ← اینترنت', stopInteractive:'توقف بررسی تعاملی', interactiveBusy:'در حال اجرای بررسی تعاملی',
+});
+Object.assign(dictionaries.en, {
+  stopAudit:'Stop scan', endpointPing:'Server → endpoint', endpointPingTip:'TCP connection time from the audit server to the destination. Not measured for UDP routes.',
+  fullServiceCheck:'Check all services', checkingServices:'Checking services…', servicesPending:'Open details to check service reachability.',
+  liveStart:'Live monitor', liveStop:'Stop monitor', liveActive:'Live · every 5 sec', serviceGroups:'Service checks', groupReachable:(ok,total)=>`${number(ok)} of ${number(total)} reachable`,
+  groupProgress:(ok,checked,total)=>`${number(ok)} reachable · ${number(checked)} of ${number(total)} checked`,
+  endpointConnect:'Server → endpoint', stopInteractive:'Stop interactive check', interactiveBusy:'An interactive check is running',
+});
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '' };
+const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', expandedUris:new Set(), serviceCatalog:[], serviceGroups:[], interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null, monitorTarget:'' };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -153,6 +167,7 @@ function setProgress(job, detail = '') {
   elements.progressCount.textContent = t('progressCount', number(job.done || 0), number(job.total || 0), number(job.success || 0));
   elements.progressBar.style.width = `${job.total ? Math.min(100, (job.done / job.total) * 100) : 0}%`;
   elements.progressMessage.textContent = detail || job.message || (job.finished ? t('doneCount', number(job.success || 0), number(job.total || 0)) : t('batchProgress', Number(job.workerCount) || 0));
+  const stopButton=$('#stop-audit');if(stopButton)stopButton.hidden=Boolean(job.finished||!job.id);
 }
 function dateLabel(value) {
   const parsed = new Date(String(value).replace(' UTC', 'Z'));
@@ -188,13 +203,41 @@ async function loadResults(jobId, title = t('resultTitle')) {
   } catch (error) { elements.countries.innerHTML = `<div class="empty-history">${escapeHtml(t('loadErr'))}: ${escapeHtml(error.message)}</div>`; elements.resultsSummary.textContent = t('retryHistory'); }
 }
 function searchable(item) { return `${item.country || ''} ${item.name || ''} ${item.endpoint || ''} ${item.ip || ''} ${item.security || ''} ${item.protocol || ''} ${item.transport || ''}`.toLocaleLowerCase(); }
-const serviceIcons = {
-  gemini:'<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="#8ab4f8" d="M8 0c.8 3.6 2.4 5.2 8 8-5.6 2.8-7.2 4.4-8 8C7.2 12.4 5.6 10.8 0 8 5.6 5.2 7.2 3.6 8 0Z"/></svg>',
-  youtube:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="3" fill="#ff3344"/><path d="m7 5.5 4 2.5-4 2.5z" fill="white"/></svg>',
-  instagram:'<svg viewBox="0 0 16 16" aria-hidden="true"><defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#ffb13b"/><stop offset=".55" stop-color="#ed3d83"/><stop offset="1" stop-color="#7544d8"/></linearGradient></defs><rect x="1" y="1" width="14" height="14" rx="4" fill="url(#ig)"/><rect x="4" y="4" width="8" height="8" rx="2.7" fill="none" stroke="white" stroke-width="1.2"/><circle cx="8" cy="8" r="1.8" fill="none" stroke="white" stroke-width="1.1"/><circle cx="11.2" cy="4.8" r=".8" fill="white"/></svg>',
-  telegram:'<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="#27a9e8"/><path d="m3.3 7.7 8.8-3.4c.4-.15.75.1.6.65l-1.5 7.1c-.1.5-.4.6-.8.35L8 10.3l-1.2 1.15c-.13.13-.24.24-.5.24l.18-2.7 4.9-4.4c.2-.18-.05-.26-.3-.09L5 8.3 2.8 7.6c-.48-.16-.5-.48.5-.88Z" fill="white"/></svg>',
-};
-const serviceNames = { gemini:'Gemini', youtube:'YouTube', instagram:'Instagram', telegram:'Telegram' };
+function serviceIcon(service) {
+  const slug = String(service?.icon || service?.id || '').toLowerCase();
+  return /^[a-z0-9-]{1,48}$/.test(slug) ? `<img src="/assets/services/${slug}.svg" alt="" loading="lazy" decoding="async">` : '<span class="service-fallback" aria-hidden="true">◎</span>';
+}
+function serviceName(service) { return state.lang === 'fa' ? (service.fa || service.name) : (service.en || service.name); }
+function serviceStatus(item, id) { return item.services?.find((result) => result.id === id) || null; }
+function serviceGroupSummary(item, group) {
+  const services = state.serviceCatalog.filter((service) => service.group === group.id);
+  const checked = services.map((service) => serviceStatus(item, service.id)).filter(Boolean);
+  if (!checked.length) return `—/${number(services.length)}`;
+  const ok = checked.filter((result) => result.ok).length;
+  return t('groupProgress',ok,checked.length,services.length);
+}
+function servicesMarkup(item, index) {
+  const groups = state.serviceGroups.length ? state.serviceGroups : [...new Set(state.serviceCatalog.map((service) => service.group))].map((id) => ({ id, fa:id, en:id }));
+  if (!groups.length) return '';
+  const inner = groups.map((group) => {
+    const services = state.serviceCatalog.filter((service) => service.group === group.id);
+    const groupName = state.lang === 'fa' ? group.fa : group.en;
+    return `<section class="service-group"><div class="service-group-heading"><strong>${escapeHtml(groupName)}</strong><span>${escapeHtml(serviceGroupSummary(item,group.id))}</span></div><div class="service-grid">${services.map((service) => {
+      const result = serviceStatus(item,service.id);
+      const status = !result ? 'unknown' : result.ok ? 'ok' : 'bad';
+      const detail = !result ? t('oldService') : result.status ? `${result.ok ? t('reachable') : t('unavailable')} · HTTP ${result.status}${result.ms != null ? ` · ${number(result.ms)} ms` : ''}` : t('noReply');
+      const active = state.monitorTarget === `${item.uri}:${service.id}`;
+      return `<button class="service-monitor ${status}${active ? ' monitoring' : ''}" type="button" data-monitor-index="${index}" data-monitor-id="${escapeHtml(service.id)}" data-uri="${escapeHtml(item.uri)}" title="${escapeHtml(`${service.name}: ${detail}`)}" aria-label="${escapeHtml(`${service.name}: ${detail}. ${active ? t('liveStop') : t('liveStart')}`)}"><span class="service-icon">${serviceIcon(service)}</span><span class="service-name">${escapeHtml(serviceName(service))}</span><span class="service-dot" aria-hidden="true"></span>${active ? `<span class="monitor-label">${escapeHtml(t('liveActive'))}</span>` : ''}</button>`;
+    }).join('')}</div></section>`;
+  }).join('');
+  const checkedCount = item.services?.length || 0;
+  const count = item.services?.filter((service) => service.ok).length || 0;
+  const total = state.serviceCatalog.length;
+  const checked = Boolean(item.servicesChecked || checkedCount);
+  const progress = state.interactiveId && state.interactiveKind === 'services' && state.interactiveUri === item.uri ? state.interactiveProgress : null;
+  const label = progress ? `${t('checkingServices')} ${number(progress.done)}/${number(progress.total)}` : checked ? t('groupProgress',count,checkedCount,total) : t('servicesPending');
+  return `<details class="service-details" data-service-details="${index}" data-uri="${escapeHtml(item.uri)}" ${state.expandedUris.has(item.uri) ? 'open' : ''}><summary><span class="service-details-title">${escapeHtml(t('serviceGroups'))}</span><span class="service-total ${checked ? 'checked' : ''}">${escapeHtml(label)}</span><button class="copy-button service-run" type="button" data-run-services="${index}">${escapeHtml(progress ? t('checkingServices') : t('fullServiceCheck'))}</button></summary><div class="service-details-body">${inner}</div></details>`;
+}
 function outboundIssues(item) {
   const outbound = item.outbound;
   if (!outbound) return [t('unsupportedOutbound')];
@@ -265,18 +308,10 @@ function uniqueOutbounds(items) {
   }
   return outbounds;
 }
-function servicesMarkup(item) {
-  return `<div class="service-checks" aria-label="${escapeHtml(t('serviceAccess'))}">${Object.keys(serviceNames).map((id) => {
-    const result = item.services?.find((service) => service.id === id);
-    const status = !result ? 'unknown' : result.ok ? 'ok' : 'bad';
-    const detail = !result ? t('oldService') : result.status ? `${result.ok ? t('reachable') : t('unavailable')} · HTTP ${result.status}${result.ms != null ? ` · ${number(result.ms)} ms` : ''}` : t('noReply');
-    return `<span class="service-badge ${status}" title="${escapeHtml(`${serviceNames[id]}: ${detail}`)}" aria-label="${escapeHtml(`${serviceNames[id]}: ${detail}`)}"><span class="service-icon">${serviceIcons[id]}</span><span class="service-dot" aria-hidden="true"></span><span class="service-name">${serviceNames[id]}</span></span>`;
-  }).join('')}</div>`;
-}
 function resultCard(item, index) {
   const name = item.name || item.endpoint || t('noName');
   const ping = item.pingCheck || { ok:item.ok, ms:item.ms, httpStatus:item.httpStatus, timings:item.timings };
-  const endpointPingMs = ping.endpointPingMs ?? item.endpointPingMs;
+  const endpointPingMs = ping.endpointConnectMs ?? item.endpointConnectMs;
   const timing = ping.timings;
   const tooltip = timing ? `HTTP ${ping.httpStatus || 0} · ${t('proxyConnect')} ${timing.proxyConnectMs ?? 0} ms · ${t('tlsViaOutbound')} ${timing.tlsViaOutboundMs ?? 0} ms · ${t('firstByte')} ${timing.firstByteMs ?? ping.ms ?? 0} ms` : t('timingNotSaved');
   const pingValue = ping.ok && ping.ms != null ? `${number(ping.ms)} ms` : t('pingFailed');
@@ -289,7 +324,28 @@ function resultCard(item, index) {
   const issues = outboundIssues(item); const duplicate = duplicateUris().has(item.uri);
   const protocolLabel = ({hysteria2:'Hysteria2',shadowsocks:'Shadowsocks',vless:'VLESS',vmess:'VMess',trojan:'Trojan',wireguard:'WireGuard',masque:'MASQUE'})[item.protocol] || String(item.protocol || 'Unknown').toUpperCase();
   const details = [protocolLabel, item.transport || '—', item.security || ''].filter(Boolean).join(' · ');
-  return `<article class="result-item${state.lastPingUri === item.uri ? ' ping-updated' : ''}" data-result-index="${index}"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat result-ping ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat result-endpoint-ping" title="${escapeHtml(t('endpointPingTip'))}">${endpointPingMs == null ? '—' : `${number(endpointPingMs)} ms`}<small>${escapeHtml(t('endpointPing'))}</small></div><div class="result-stat result-exit">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
+  return `<article class="result-item route-card${state.lastPingUri === item.uri ? ' ping-updated' : ''}" data-result-index="${index}" data-uri="${escapeHtml(item.uri)}"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat result-ping ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat result-endpoint-ping" title="${escapeHtml(t('endpointPingTip'))}">${endpointPingMs == null ? '—' : `${number(endpointPingMs)} ms`}<small>${escapeHtml(t('endpointPing'))}</small></div><div class="result-stat result-exit">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button><button class="copy-button speed-test-button" type="button" data-speed-index="${index}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</div>${servicesMarkup(item,index)}</article>`;
+}
+function refreshResultCard(item) {
+  const index = state.currentResults.indexOf(item);
+  if (index < 0) return;
+  const card = elements.countries.querySelector(`[data-result-index="${index}"]`);
+  if (card) card.outerHTML = resultCard(item,index);
+}
+function refreshServicePanel(item) {
+  const index = state.currentResults.indexOf(item);
+  if (index < 0) return;
+  const card = elements.countries.querySelector(`[data-result-index="${index}"]`);
+  const panel = card?.querySelector('.service-details');
+  if (panel) panel.outerHTML = servicesMarkup(item,index);
+  const total = card?.querySelector('.service-total');
+  if (total) total.textContent = `${t('checkingServices')} ${number(state.interactiveProgress?.done || 0)}/${number(state.interactiveProgress?.total || 0)}`;
+}
+function updateServiceProgress(item) {
+  const index = state.currentResults.indexOf(item);
+  const card = index < 0 ? null : elements.countries.querySelector(`[data-result-index="${index}"]`);
+  const total = card?.querySelector('.service-total');
+  if (total) total.textContent = `${t('checkingServices')} ${number(state.interactiveProgress?.done || 0)}/${number(state.interactiveProgress?.total || 0)}`;
 }
 function countryOutbounds(country) {
   return uniqueOutbounds(state.currentResults.filter((item) => (item.country || t('countryUnknown')) === country));
@@ -309,8 +365,8 @@ function downloadJson(country, button) {
   const oldText = button.textContent; button.textContent = t('ready'); window.setTimeout(() => { button.textContent = oldText; }, 1400);
 }
 async function rerunPing(index, button) {
-  const item=state.currentResults[index]; if(!item?.uri||state.busy)return;
-  setBusy(true);button.disabled=true;button.textContent=t('pingChecking');
+  const item=state.currentResults[index]; if(!item?.uri)return;
+  button.disabled=true;button.textContent=t('pingChecking');
   try{
     item.pingCheck=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/ping`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});
     state.lastPingUri=item.uri;
@@ -325,27 +381,96 @@ async function rerunPing(index, button) {
     });
   }
   catch(error){showError(error.message);button.disabled=false;button.textContent=t('pingAgain');}
-  finally{setBusy(false);}
+  finally{button.disabled=false;button.textContent=t('pingAgain');}
 }
 async function rerunCountryPings(country, button) {
   const items=state.currentResults.filter((item)=>(item.country||t('countryUnknown'))===country&&item.ok&&item.uri);
-  if(!items.length||state.busy)return;
-  const original=button.textContent;setBusy(true,'ping-all');button.disabled=true;button.textContent=t('pingAllChecking');
+  if(!items.length||state.interactiveId)return;
+  const original=button.textContent;button.disabled=true;button.textContent=t('pingAllChecking');
   try{
     const data=await api('/api/jobs/'+encodeURIComponent(state.currentJob)+'/results/ping-all',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uris:items.map(item=>item.uri)})});
-    const updated=[];
-    for(const result of data.results||[]){const item=items.find(candidate=>candidate.uri===result.uri);if(item&&result.pingCheck){item.pingCheck=result.pingCheck;updated.push(item);}}
-    renderResults();
-    requestAnimationFrame(()=>updated.forEach(item=>{const index=state.currentResults.indexOf(item);const card=elements.countries.querySelector('[data-result-index="'+index+'"]');if(!card)return;card.classList.add('ping-updated');window.setTimeout(()=>card.classList.remove('ping-updated'),2800);}));
+    await watchInteractive(data, { items });
   }catch(error){showError(error.message);}
-  finally{if(state.busyKind==='ping-all')setBusy(false);button.disabled=false;button.textContent=original;}
+  finally{button.disabled=false;button.textContent=original;}
 }
 async function runDownloadTest(index, button) {
-  const item=state.currentResults[index]; if(!item?.uri||state.busy)return;
-  setBusy(true);button.disabled=true;button.textContent=t('speedTesting');
-  try{item.speedCheck=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/download`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});renderResults();}
+  const item=state.currentResults[index]; if(!item?.uri||state.interactiveId)return;
+  button.disabled=true;button.textContent=t('speedTesting');
+  try{const task=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/download`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});await watchInteractive(task,{item});}
   catch(error){showError(error.message);button.disabled=false;button.textContent=`↓ ${t('speedTest')}`;}
-  finally{setBusy(false);}
+  finally{button.disabled=false;button.textContent=`↓ ${t('speedTest')}`;}
+}
+async function startServiceSuite(item) {
+  if (!item?.uri || state.interactiveId) return;
+  try {
+    const task = await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/results/services`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri})});
+    await watchInteractive(task,{item});
+  } catch(error) { showError(error.message); }
+}
+async function toggleLiveMonitor(item, serviceId) {
+  if (!item?.uri) return;
+  const target = `${item.uri}:${serviceId}`;
+  if (state.monitorTarget === target && state.interactiveId) {
+    try { await api(`/api/interactive/${encodeURIComponent(state.interactiveId)}/stop`,{method:'POST'}); } catch(error) { showError(error.message); }
+    return;
+  }
+  if (state.interactiveId) {
+    await stopInteractive(state.interactiveId);
+  }
+  try {
+    const task = await api(`/api/jobs/${encodeURIComponent(state.currentJob)}/monitor`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uri:item.uri,serviceId})});
+    state.monitorTarget = target;
+    renderResults();
+    await watchInteractive(task,{item});
+  } catch(error) { state.monitorTarget=''; showError(error.message); renderResults(); }
+}
+async function stopInteractive(id) {
+  try { await api(`/api/interactive/${encodeURIComponent(id)}/stop`,{method:'POST'}); } catch {}
+  for(let attempt=0;attempt<40;attempt++) {
+    await new Promise((resolve)=>window.setTimeout(resolve,125));
+    try { const status=await api(`/api/interactive/${encodeURIComponent(id)}`);if(!['starting','running','stopping'].includes(status.status))return; } catch { return; }
+  }
+}
+async function watchInteractive(task, options = {}) {
+  state.interactiveId=task.id;state.interactiveKind=task.kind;state.interactiveUri=options.item?.uri||task.uri||'';
+  if(options.items) state.interactiveEntries=options.items;
+  try {
+    let current=task;
+    while(['starting','running','stopping'].includes(current.status)) {
+      if(current.kind==='monitor' && current.result) {
+        const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
+        if(item){item.services=item.services||[];const ix=item.services.findIndex((entry)=>entry.id===current.result.id);if(ix>=0)item.services[ix]=current.result;else item.services.push(current.result);}
+        if(item) refreshServicePanel(item);
+      }
+      state.interactiveProgress={done:current.done,total:current.total};
+      if(current.kind==='services') {
+        const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
+        if(item) updateServiceProgress(item);
+      }
+      await new Promise((resolve)=>window.setTimeout(resolve,1000));
+      current=await api(`/api/interactive/${encodeURIComponent(task.id)}`);
+    }
+    if(current.status==='failed') throw new Error(current.error||t('interactiveBusy'));
+    if(current.kind==='ping-all') {
+      await reloadVisibleJobResults();
+    } else if(current.kind==='download') {
+      const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
+      if(item&&current.result)item.speedCheck=current.result;
+      if(item) refreshResultCard(item);
+    } else if(current.result?.services) {
+      const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
+      if(item){item.services=current.result.services;item.servicesChecked=new Date().toISOString();item.pingCheck=current.result.pingCheck;item.endpointConnectMs=current.result.endpointConnectMs;}
+      if(item) refreshResultCard(item);
+    }
+  } finally {
+    if(state.interactiveId===task.id){const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);state.interactiveId='';state.interactiveKind='';state.interactiveUri='';state.interactiveProgress=null;state.monitorTarget='';if(item)refreshResultCard(item);}
+  }
+}
+async function reloadVisibleJobResults() {
+  if(!state.currentJob)return;
+  const loaded=[];
+  for(let offset=0;;offset+=100){const chunk=await api(`/api/jobs/${encodeURIComponent(state.currentJob)}?offset=${offset}&limit=100`);loaded.push(...chunk.results);if(loaded.length>=chunk.success||!chunk.results.length)break;}
+  state.currentResults=loaded;renderResults();
 }
 function renderResults() {
   if (!elements.countries || elements.results.hidden) return;
@@ -405,10 +530,17 @@ async function copyText(text, button) {
 }
 async function monitorJob(job, generation = state.activityGeneration) {
   let current=job; if(generation!==state.activityGeneration)return; setProgress(current);
-  while(!current.finished){await new Promise((resolve)=>window.setTimeout(resolve,1100));if(generation!==state.activityGeneration)return;current=await api(`/api/jobs/${encodeURIComponent(job.id)}?summary=1`);if(generation!==state.activityGeneration)return;setProgress(current);}
+  state.currentJob=job.id;state.currentResults=[];state.selectedUris.clear();state.expandedUris.clear();elements.results.hidden=false;elements.resultsTitle.textContent=t('newResults');elements.countries.innerHTML='';
+  let loadedCount=0,lastRenderedCount=0,lastRenderedAt=Date.now();
+  while(!current.finished){
+    await new Promise((resolve)=>window.setTimeout(resolve,1100));if(generation!==state.activityGeneration)return;
+    current=await api(`/api/jobs/${encodeURIComponent(job.id)}?summary=1`);if(generation!==state.activityGeneration)return;setProgress(current);
+    const chunk=await api(`/api/jobs/${encodeURIComponent(job.id)}?offset=${loadedCount}&limit=100`);
+    if(chunk.results.length){state.currentResults.push(...chunk.results);loadedCount+=chunk.results.length;elements.resultsSummary.textContent=t('resultsChunk',number(loadedCount),number(chunk.success));if(loadedCount-lastRenderedCount>=50||Date.now()-lastRenderedAt>=5000||current.finished){renderResults();lastRenderedCount=loadedCount;lastRenderedAt=Date.now();}}
+  }
   if(generation!==state.activityGeneration)return;
   if(current.error) elements.progressMessage.textContent=current.error;
-  await loadResults(job.id,t('newResults')); await loadHistory();
+  await reloadVisibleJobResults();elements.resultsSummary.textContent=t('resultsLoaded',number(state.currentResults.length),number(current.total||state.currentResults.length));renderResults();await loadHistory();
 }
 document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach((item)=>{const selected=item===tab;item.classList.toggle('active',selected);item.setAttribute('aria-selected',String(selected));});
@@ -416,7 +548,7 @@ document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()
 }));
 elements.form.addEventListener('submit',async(event)=>{
   event.preventDefault();const replacingCheck=state.busy&&['ping-all','audit'].includes(state.busyKind);if(state.busy&&!replacingCheck)return;showError();const isUrl=!$('#url-mode').hidden;
-    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
+    const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={protocolIds};
   if(isUrl)payload.subscriptionUrl=elements.url.value.trim();else payload.text=elements.text.value.trim();
   if(isUrl&&!payload.subscriptionUrl)return showError(t('askUrl'));if(!isUrl&&!payload.text)return showError(t('askText'));
   const previousGeneration=state.activityGeneration;let generation=previousGeneration;let accepted=false;let declined=false;
@@ -513,6 +645,12 @@ elements.history.addEventListener('submit', async (event) => {
   } catch (error) { showError(error.message); submit.disabled = false; }
 });
 elements.countries.addEventListener('click',(event)=>{
+  const monitor=event.target.closest('[data-monitor-id]');if(monitor){const item=state.currentResults[Number(monitor.dataset.monitorIndex)];toggleLiveMonitor(item,monitor.dataset.monitorId);return;}
+  const runServices=event.target.closest('[data-run-services]');if(runServices){event.preventDefault();const item=state.currentResults[Number(runServices.dataset.runServices)];startServiceSuite(item);return;}
+  const serviceSummary=event.target.closest('.service-details > summary');
+  if(serviceSummary){const details=serviceSummary.parentElement;window.setTimeout(()=>{const item=state.currentResults[Number(details.dataset.serviceDetails)];if(details.open){state.expandedUris.add(item?.uri);startServiceSuite(item);}else state.expandedUris.delete(item?.uri);},0);return;}
+  const tile=event.target.closest('.route-card');
+  if(tile&&!event.target.closest('button,input,a,summary,.service-details')){const item=state.currentResults[Number(tile.dataset.resultIndex)];const details=tile.querySelector('.service-details');if(details){details.open=!details.open;if(details.open){state.expandedUris.add(item?.uri);startServiceSuite(item);}else state.expandedUris.delete(item?.uri);}return;}
   const pingAllButton=event.target.closest('[data-ping-all-country]');if(pingAllButton){rerunCountryPings(pingAllButton.dataset.pingAllCountry,pingAllButton);return;}
   const pingButton=event.target.closest('[data-ping-index]');if(pingButton){rerunPing(Number(pingButton.dataset.pingIndex),pingButton);return;}
   const speedButton=event.target.closest('[data-speed-index]');if(speedButton){runDownloadTest(Number(speedButton.dataset.speedIndex),speedButton);return;}
@@ -521,6 +659,8 @@ elements.countries.addEventListener('click',(event)=>{
   const jsonButton=event.target.closest('[data-copy-json]');if(jsonButton){event.preventDefault();copyText(JSON.stringify(countryOutbounds(jsonButton.dataset.copyJson),null,2),jsonButton);return;}
   const downloadButton=event.target.closest('[data-download-json]');if(downloadButton){event.preventDefault();downloadJson(downloadButton.dataset.downloadJson,downloadButton);}
 });
+$('#stop-audit').addEventListener('click',async()=>{const id=state.lastJob?.id;if(!id)return;const button=$('#stop-audit');button.disabled=true;try{await api(`/api/jobs/${encodeURIComponent(id)}/stop`,{method:'POST'});}catch(error){showError(error.message);}finally{button.disabled=false;}});
+api('/api/services').then((data)=>{state.serviceCatalog=data.services||[];state.serviceGroups=data.groups||[];const select=$('#result-service');for(const service of state.serviceCatalog){const option=document.createElement('option');option.value=service.id;option.textContent=service.name;select.append(option);}renderResults();}).catch(()=>{});
 elements.countries.addEventListener('change',(event)=>{const input=event.target.closest('[data-select-index]');if(!input)return;const item=state.currentResults[Number(input.dataset.selectIndex)];if(!item?.uri)return;if(input.checked)state.selectedUris.add(item.uri);else state.selectedUris.delete(item.uri);renderResults();});
 $('#select-visible').addEventListener('click',()=>{for(const index of state.visibleIndices){const item=state.currentResults[index];if(item?.uri)state.selectedUris.add(item.uri);}renderResults();});
 $('#clear-selection').addEventListener('click',()=>{state.selectedUris.clear();renderResults();});
