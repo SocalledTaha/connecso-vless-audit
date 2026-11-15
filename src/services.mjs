@@ -1,7 +1,9 @@
 // All checks are HTTPS reachability checks through the selected route. They
 // do not measure game-server RTT or validate account/login availability.
+// Use each vendor's public web edge (not a regional download/login deep link)
+// to reduce false negatives caused by redirects, geofencing, or bot challenges.
 const service = (id, group, name, host, icon = id) => ({
-  id, group, name, host, icon, url: `https://${host}/`,
+  id, group, name, host, icon, url: `https://${host.replace(/\/+$/, '')}${host.includes('/') ? '' : '/'}`,
 });
 
 export const SERVICE_GROUPS = [
@@ -33,7 +35,7 @@ export const SERVICES = [
   service('perplexity', 'public', 'Perplexity', 'www.perplexity.ai'),
   service('google', 'public', 'Google', 'www.google.com'),
   service('youtube', 'public', 'YouTube', 'www.youtube.com'),
-  service('gmail', 'public', 'Gmail', 'mail.google.com'),
+  service('gmail', 'public', 'Gmail', 'mail.google.com/mail/'),
   service('google-drive', 'public', 'Google Drive', 'drive.google.com', 'googledrive'),
   service('google-play', 'public', 'Google Play', 'play.google.com', 'googleplay'),
   service('github', 'public', 'GitHub', 'github.com'),
@@ -68,9 +70,9 @@ export const SERVICES = [
   service('dell', 'downloads', 'Dell Support', 'www.dell.com/support'),
   service('lenovo', 'downloads', 'Lenovo Support', 'support.lenovo.com'),
   service('asus', 'downloads', 'ASUS Support', 'www.asus.com/support'),
-  service('acer', 'downloads', 'Acer Support', 'www.acer.com/support'),
+  service('acer', 'downloads', 'Acer Support', 'www.acer.com/us-en/support/drivers-and-manuals'),
   service('nvidia', 'downloads', 'NVIDIA Drivers', 'www.nvidia.com'),
-  service('amd', 'downloads', 'AMD Drivers', 'www.amd.com'),
+  service('amd', 'downloads', 'AMD Drivers', 'www.amd.com/en/support/download/drivers.html'),
   service('intel', 'downloads', 'Intel Download Center', 'www.intel.com/content/www/us/en/download-center/home.html'),
   service('realtek', 'downloads', 'Realtek Downloads', 'www.realtek.com'),
   service('samsung', 'downloads', 'Samsung Support', 'www.samsung.com/support'),

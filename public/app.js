@@ -24,6 +24,7 @@ const dictionaries = {
     doneCount:(s,t)=>`${s} اتصال موفق از ${t} مورد.`,
     historyLabel:'سابقهٔ بررسی', historyTitle:'نتیجه‌های قبلی', refresh:'تازه‌سازی', loadingHistory:'در حال دریافت سابقه…',
     editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', editSubscriptionUrl:'لینک اشتراک', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', resume:'ادامه', resumeError:'ادامهٔ این بررسی ممکن نشد.', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
+    rescanOptions:'تنظیم اجرای دوباره', rescanLinkHint:'لینک را می‌توانی عوض کنی؛ ساب از ابتدا دریافت و فهرست کانفیگ‌ها دوباره ساخته می‌شود.', rescanStart:'شروع بررسی تازه', rescanNoProtocols:'حداقل یک پروتکل را انتخاب کن.', cancelRescan:'بستن',
     historySuccess:(s,t,d,finished,interrupted)=>`${s} موفق · ${d} از ${t} بررسی‌شده${finished?' · پایان‌یافته':interrupted?' · متوقف‌شده':' · ادامه در پس‌زمینه'}`,
     resultsLabel:'خروجی بررسی', resultTitle:'کانفیگ‌های موفق', resultsLoading:'در حال دریافت نتیجه‌ها به بخش‌های کوچک…',
     loading:'در حال بارگذاری…', loadErr:'نتیجه‌ها بارگذاری نشدند', retryHistory:'می‌توانی دوباره از سابقه همین بررسی را باز کنی.',
@@ -31,7 +32,7 @@ const dictionaries = {
     resultsChunk:(a,b)=>`دریافت ${a} از ${b} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
     noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
-    oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', endpointPing:'پینگ مستقیم مقصد', endpointPingTip:'ICMP از سرور بررسی تا IP مقصد؛ ممکن است پاسخ ICMP بسته باشد.', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
+    oldService:'بررسی نشده', reachable:'پاسخ موفق', unavailable:'پاسخ موفقی دریافت نشد', noReply:'بدون پاسخ', httpResponded:'پاسخ HTTP دریافت شد؛ سرور مقصد در دسترس است', httpResponseTime:'زمان کامل پاسخ HTTP', gameReachabilityOnly:'فقط دسترسی سایت؛ پینگ سرور بازی نیست', httpStatusIssue:'کد HTTP خطا/محدودیت است، نه خطای اتصال تونل', routeCheckFailed:'درخواست آزمون به مقصد نرسید', probeError_timeout:'مهلت پاسخ تمام شد', probeError_dns:'خطای DNS مقصد', probeError_tls:'خطای TLS', probeError_refused:'اتصال از سمت مقصد رد شد', probeError_network:'خطای شبکه یا مسیر', httpStatus:'HTTP', endpointPing:'پینگ مستقیم مقصد', endpointPingTip:'ICMP از سرور بررسی تا IP مقصد؛ ممکن است پاسخ ICMP بسته باشد.', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
     allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${n} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${number(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
     footerBrand:'بخشی از خانوادهٔ پروژه‌های Connecso', footerByline:'ساخته‌شده توسط Taha', footerDownload:'Get Connecso Client', footerDownloadTip:'Get the V2Ray-based VPN client for Windows and Android.',
@@ -59,6 +60,7 @@ const dictionaries = {
     progressCount:(d,t,s)=>`${d} of ${t} · ${s} working`, doneCount:(s,t)=>`${s} working routes out of ${t}.`,
     historyLabel:'AUDIT HISTORY', historyTitle:'Previous results', refresh:'Refresh', loadingHistory:'Loading history…',
     editHistory:'Edit', editName:'Search name', editTags:'Tags', editSubscriptionUrl:'Subscription URL', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', resume:'Resume', resumeError:'Could not resume this audit.', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
+    rescanOptions:'Run again options', rescanLinkHint:'You can replace the link. The subscription and configuration list will be fetched again from the beginning.', rescanStart:'Start fresh scan', rescanNoProtocols:'Select at least one protocol.', cancelRescan:'Cancel',
     historySuccess:(s,t,d,finished,interrupted)=>`${s} working · ${d} of ${t} checked${finished?' · complete':interrupted?' · interrupted':' · running in background'}`,
     resultsLabel:'AUDIT OUTPUT', resultTitle:'Working configurations', resultsLoading:'Loading results in small sections…',
     loading:'Loading…', loadErr:'Could not load results', retryHistory:'You can reopen this audit from history.',
@@ -66,7 +68,7 @@ const dictionaries = {
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
     noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
-    oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', endpointPing:'Direct endpoint ping', endpointPingTip:'ICMP from the audit server to the endpoint IP; ICMP may be blocked.', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
+    oldService:'Not checked', reachable:'Successful response', unavailable:'No successful HTTP response', noReply:'No response', httpResponded:'HTTP response received; destination server is reachable', httpResponseTime:'Full HTTP response time', gameReachabilityOnly:'Website reachability only; not a game-server ping', httpStatusIssue:'HTTP error/restriction code, not a tunnel connection error', routeCheckFailed:'Probe request did not reach the destination', probeError_timeout:'Request timed out', probeError_dns:'Destination DNS error', probeError_tls:'TLS error', probeError_refused:'Connection refused by destination', probeError_network:'Network or route error', httpStatus:'HTTP', endpointPing:'Direct endpoint ping', endpointPingTip:'ICMP from the audit server to the endpoint IP; ICMP may be blocked.', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
     allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${number(n)} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
     footerBrand:'Part of the Connecso Projects family', footerByline:'Made by Taha', footerDownload:'Get Connecso Client', footerDownloadTip:'Get the V2Ray-based VPN client for Windows and Android.',
@@ -82,14 +84,14 @@ Object.assign(dictionaries.fa, {
   stopAudit:'توقف اسکن', endpointPing:'سرور ← مقصد', endpointPingTip:'زمان برقراری اتصال TCP از سرور بررسی تا سرور مقصد؛ برای مسیرهای UDP قابل سنجش نیست.',
   fullServiceCheck:'بررسی همهٔ سرویس‌ها', checkingServices:'در حال بررسی سرویس‌ها…', servicesPending:'برای دریافت نتیجه، جزئیات را باز کن.',
   liveStart:'پایش زنده', liveStop:'توقف پایش', liveActive:'پایش زنده · هر ۵ ثانیه', serviceGroups:'بررسی سرویس‌ها', groupReachable:(ok,total)=>`${number(ok)} از ${number(total)} پاسخ‌گو`,
-  groupProgress:(ok,checked,total)=>`${number(ok)} پاسخ‌گو · ${number(checked)} از ${number(total)} بررسی‌شده`,
+  groupProgress:(ok,checked,total)=>`${number(ok)} پاسخ HTTP · ${number(checked)} از ${number(total)} بررسی‌شده`,
   endpointConnect:'سرور ← اینترنت', stopInteractive:'توقف بررسی تعاملی', interactiveBusy:'در حال اجرای بررسی تعاملی',
 });
 Object.assign(dictionaries.en, {
   stopAudit:'Stop scan', endpointPing:'Server → endpoint', endpointPingTip:'TCP connection time from the audit server to the destination. Not measured for UDP routes.',
   fullServiceCheck:'Check all services', checkingServices:'Checking services…', servicesPending:'Open details to check service reachability.',
   liveStart:'Live monitor', liveStop:'Stop monitor', liveActive:'Live · every 5 sec', serviceGroups:'Service checks', groupReachable:(ok,total)=>`${number(ok)} of ${number(total)} reachable`,
-  groupProgress:(ok,checked,total)=>`${number(ok)} reachable · ${number(checked)} of ${number(total)} checked`,
+  groupProgress:(ok,checked,total)=>`${number(ok)} responded · ${number(checked)} of ${number(total)} checked`,
   endpointConnect:'Server → endpoint', stopInteractive:'Stop interactive check', interactiveBusy:'An interactive check is running',
 });
 const faNum = new Intl.NumberFormat('fa-IR');
@@ -97,6 +99,7 @@ const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', a
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
+const RESCAN_PROTOCOLS = [['vless','VLESS'],['vmess','VMess'],['trojan','Trojan'],['shadowsocks','Shadowsocks'],['hysteria2','Hysteria2'],['wireguard','WireGuard'],['masque','MASQUE']];
 function applyLanguage() {
   document.documentElement.lang = state.lang;
   document.documentElement.dir = state.lang === 'fa' ? 'rtl' : 'ltr';
@@ -136,12 +139,23 @@ function showUpdateStatus(status) {
   const button = $('#update-button');
   if (!output || !button) return;
   const active = UPDATE_ACTIVE.has(status.state);
-  output.dataset.updateId = status.id || status.state;
-  output.hidden = status.state === 'idle';
+  const updateId = status.id || status.state;
+  const wasSame = output.dataset.updateId === updateId;
+  output.dataset.updateId = updateId;
+  const dismissed = status.state === 'failed' && localStorage.getItem('vless-audit-dismissed-update') === updateId;
+  output.hidden = status.state === 'idle' || dismissed;
   output.classList.toggle('is-error', status.state === 'failed');
   const messageKey = status.message || (status.state === 'complete' ? 'updateComplete' : UPDATE_LABELS[status.state]);
-  output.textContent = status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : messageKey ? t(messageKey) : t('updateNoHelper');
+  $('#update-status-message').textContent = status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : messageKey ? t(messageKey) : t('updateNoHelper');
   button.disabled = active;
+  if (status.state === 'failed' && !wasSame && !dismissed) {
+    window.setTimeout(() => {
+      if (output.dataset.updateId === updateId && status.state === 'failed') {
+        localStorage.setItem('vless-audit-dismissed-update', updateId);
+        output.hidden = true;
+      }
+    }, 12000);
+  }
   if (status.state === 'complete') {
     const completedId = output.dataset.updateId;
     window.setTimeout(() => {
@@ -149,6 +163,11 @@ function showUpdateStatus(status) {
     }, 5000);
   }
 }
+$('#dismiss-update-status')?.addEventListener('click', () => {
+  const output = $('#update-status');
+  if (output?.dataset.updateId) localStorage.setItem('vless-audit-dismissed-update', output.dataset.updateId);
+  if (output) output.hidden = true;
+});
 async function watchUpdate() {
   try {
     const status = await api(`/api/update/status?t=${Date.now()}`);
@@ -183,7 +202,8 @@ async function loadHistory() {
       const title = job.title?.trim() || job.id;
       const tags = (job.tags || []).map((tag) => `<span class="history-tag">${escapeHtml(tag)}</span>`).join('');
       const done = Number(job.done) || 0;
-      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}${job.canResume ? `<button class="open-history resume-history" type="button" data-resume-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('resume'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
+      const protocolOptions = RESCAN_PROTOCOLS.map(([id, label]) => `<label class="option-check"><input type="checkbox" name="protocolIds" value="${id}" checked><span>${label}</span></label>`).join('');
+      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}${job.canResume ? `<button class="open-history resume-history" type="button" data-resume-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('resume'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-rescan-options" data-rescan-form="${escapeHtml(job.id)}" hidden><label class="rescan-url-field"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><p>${escapeHtml(t('rescanLinkHint'))}</p><fieldset><legend>${escapeHtml(t('protocolFilters'))}</legend><div class="scan-option-grid">${protocolOptions}</div></fieldset><div class="history-edit-actions"><button class="open-history rescan-submit" type="submit">${escapeHtml(t('rescanStart'))}</button><button class="open-history" type="button" data-cancel-rescan="${escapeHtml(job.id)}">${escapeHtml(t('cancelRescan'))}</button></div></form><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
     }).join('');
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
 }
@@ -209,12 +229,13 @@ function serviceIcon(service) {
 }
 function serviceName(service) { return state.lang === 'fa' ? (service.fa || service.name) : (service.en || service.name); }
 function serviceStatus(item, id) { return item.services?.find((result) => result.id === id) || null; }
+function serviceReached(result) { return Boolean(result && (result.reachable ?? Number(result.status) > 0)); }
 function serviceGroupSummary(item, groupId) {
   const services = state.serviceCatalog.filter((service) => service.group === groupId);
   const checked = services.map((service) => serviceStatus(item, service.id)).filter(Boolean);
   if (!checked.length) return `—/${number(services.length)}`;
-  const ok = checked.filter((result) => result.ok).length;
-  return t('groupProgress',ok,checked.length,services.length);
+  const reached = checked.filter(serviceReached).length;
+  return t('groupProgress',reached,checked.length,services.length);
 }
 function servicesMarkup(item, index) {
   const groups = state.serviceGroups.length ? state.serviceGroups : [...new Set(state.serviceCatalog.map((service) => service.group))].map((id) => ({ id, fa:id, en:id }));
@@ -225,14 +246,14 @@ function servicesMarkup(item, index) {
     const groupKey = `${item.uri}:${group.id}`;
     return `<details class="service-group" data-service-group="${escapeHtml(group.id)}" data-uri="${escapeHtml(item.uri)}" ${state.expandedServiceGroups.has(groupKey) ? 'open' : ''}><summary class="service-group-heading"><strong>${escapeHtml(groupName)}</strong><span>${escapeHtml(serviceGroupSummary(item,group.id))}</span></summary><div class="service-grid">${services.map((service) => {
       const result = serviceStatus(item,service.id);
-      const status = !result ? 'unknown' : result.ok ? 'ok' : 'bad';
-      const detail = !result ? t('oldService') : result.status ? `${result.ok ? t('reachable') : t('unavailable')} · HTTP ${result.status}${result.ms != null ? ` · ${number(result.ms)} ms` : ''}` : t('noReply');
+      const status = !result ? 'unknown' : result.ok ? 'ok' : serviceReached(result) ? 'warn' : 'bad';
+      const detail = !result ? t('oldService') : serviceReached(result) ? `${result.ok ? t('reachable') : t('httpResponded')} · HTTP ${result.status}${result.group === 'gaming' ? ` · ${t('gameReachabilityOnly')}` : result.ms != null ? ` · ${t('httpResponseTime')} ${number(result.ms)} ms` : ''}${result.status >= 400 ? ` · ${t('httpStatusIssue')}` : ''}` : `${t('routeCheckFailed')}${result.error ? ` · ${t(`probeError_${result.error}`)}` : ''}`;
       const active = state.monitorTarget === `${item.uri}:${service.id}`;
       return `<button class="service-monitor ${status}${active ? ' monitoring' : ''}" type="button" data-monitor-index="${index}" data-monitor-id="${escapeHtml(service.id)}" data-uri="${escapeHtml(item.uri)}" title="${escapeHtml(`${service.name}: ${detail}`)}" aria-label="${escapeHtml(`${service.name}: ${detail}. ${active ? t('liveStop') : t('liveStart')}`)}"><span class="service-icon">${serviceIcon(service)}</span><span class="service-name">${escapeHtml(serviceName(service))}</span><span class="service-dot" aria-hidden="true"></span>${active ? `<span class="monitor-label">${escapeHtml(t('liveActive'))}</span>` : ''}</button>`;
     }).join('')}</div></details>`;
   }).join('');
   const checkedCount = item.services?.length || 0;
-  const count = item.services?.filter((service) => service.ok).length || 0;
+  const count = item.services?.filter(serviceReached).length || 0;
   const total = state.serviceCatalog.length;
   const checked = Boolean(item.servicesChecked || checkedCount);
   const progress = state.interactiveId && state.interactiveKind === 'services' && state.interactiveUri === item.uri ? state.interactiveProgress : null;
@@ -593,6 +614,12 @@ elements.history.addEventListener('click', async (event) => {
     if (form) form.hidden = true;
     return;
   }
+  const cancelRescan = event.target.closest('[data-cancel-rescan]');
+  if (cancelRescan) {
+    const form = elements.history.querySelector(`[data-rescan-form="${CSS.escape(cancelRescan.dataset.cancelRescan)}"]`);
+    if (form) form.hidden = true;
+    return;
+  }
   const copySubButton = event.target.closest('[data-copy-subscription]');
   if (copySubButton) {
     try {
@@ -614,16 +641,8 @@ elements.history.addEventListener('click', async (event) => {
   const rescan = event.target.closest('[data-rescan-job]');
   if (rescan) {
     if (state.busy) return;
-    const options = { method:'POST' };
-    if (rescan.dataset.needsUrl === 'true') {
-      const subscriptionUrl = window.prompt(t('rescanUrlPrompt'), elements.url.value.trim());
-      if (!subscriptionUrl?.trim()) return;
-      options.headers = {'content-type':'application/json'}; options.body = JSON.stringify({subscriptionUrl:subscriptionUrl.trim()});
-    }
-    setBusy(true); rescan.disabled = true; showError(''); elements.progress.hidden = false; setProgress({id:'',done:0,total:0,success:0,finished:false},t('reading'));
-    try { const job = await api(`/api/jobs/${encodeURIComponent(rescan.dataset.rescanJob)}/rescan`,options); await monitorJob(job); }
-    catch(error) { showError(error.message); elements.progress.hidden = true; }
-    finally { setBusy(false); rescan.disabled = false; }
+    const form = elements.history.querySelector(`[data-rescan-form="${CSS.escape(rescan.dataset.rescanJob)}"]`);
+    if (form) { form.hidden = !form.hidden; if (!form.hidden) form.scrollIntoView({behavior:'smooth',block:'nearest'}); }
     return;
   }
   const resume = event.target.closest('[data-resume-job]');
@@ -640,6 +659,24 @@ elements.history.addEventListener('click', async (event) => {
   if (button) loadResults(button.dataset.openJob,t('savedResults'));
 });
 elements.history.addEventListener('submit', async (event) => {
+  const rescanForm = event.target.closest('[data-rescan-form]');
+  if (rescanForm) {
+    event.preventDefault();
+    const protocolIds = [...rescanForm.querySelectorAll('input[name="protocolIds"]:checked')].map((input) => input.value);
+    if (!protocolIds.length) { showError(t('rescanNoProtocols')); return; }
+    const submit = rescanForm.querySelector('.rescan-submit');
+    submit.disabled = true;
+    setBusy(true, 'audit'); showError(''); elements.progress.hidden = false;
+    setProgress({id:'',done:0,total:0,success:0,finished:false},t('reading'));
+    try {
+      const subscriptionUrl = String(new FormData(rescanForm).get('subscriptionUrl') || '').trim();
+      const job = await api(`/api/jobs/${encodeURIComponent(rescanForm.dataset.rescanForm)}/rescan`, { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({subscriptionUrl,protocolIds}) });
+      rescanForm.hidden = true;
+      await monitorJob(job);
+    } catch (error) { showError(error.message); elements.progress.hidden = true; }
+    finally { setBusy(false); submit.disabled = false; await loadHistory(); }
+    return;
+  }
   const form = event.target.closest('[data-history-form]');
   if (!form) return;
   event.preventDefault();

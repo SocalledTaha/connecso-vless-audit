@@ -814,29 +814,29 @@ async function route(request, response) {
     if (activeJob) return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
     const previous = jobs.get(rescanMatch[1]);
     if (!previous) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
-    let suppliedUrl = '';
-    if (!previous.subscriptionUrl && !previous.results.some((item) => item.uri)) {
-      let input;
-      try { input = JSON.parse(await readBody(request)); }
-      catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'لینک ساب برای اجرای دوباره لازم است.'); }
-      suppliedUrl = String(input.subscriptionUrl || '').trim();
-      if (!suppliedUrl) return fail(response, 400, 'این سابقه لینک ذخیره‌شده ندارد؛ لینک ساب را وارد کن تا دوباره بررسی شود.');
-    }
+    let input = {};
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'تنظیمات اجرای دوباره معتبر نیست.'); }
+    const protocolIds = Array.isArray(input.protocolIds)
+      ? [...new Set(input.protocolIds.map((id) => String(id).toLowerCase()).filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)))]
+      : [...SUPPORTED_PROTOCOL_IDS];
+    if (!protocolIds.length) return fail(response, 400, 'حداقل یک پروتکل را برای اجرای دوباره انتخاب کن.');
+    const suppliedUrl = String(input.subscriptionUrl || '').trim();
+    const subscriptionUrl = suppliedUrl || previous.subscriptionUrl || '';
     let text;
-    const subscriptionUrl = previous.subscriptionUrl || suppliedUrl;
     if (subscriptionUrl) {
       try { text = await fetchSubscription(subscriptionUrl); }
       catch (error) { return fail(response, error.status || 400, error.message || 'دریافت لینک ساب ناموفق بود.'); }
     } else {
-      // Legacy histories did not keep their original subscription URL. Recheck the configs saved in that result.
+      // Pasted config lists have no subscription URL; recheck their saved source configs.
       text = previous.results.map((item) => item.uri).filter(Boolean).join('\n');
     }
     const parsedConfigs = parseSubscription(text);
-    const configs = filterProtocols(parsedConfigs, previous.protocolIds);
+    const configs = filterProtocols(parsedConfigs, protocolIds);
     if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
-    const offset = configs.length && subscriptionUrl ? Math.min(previous.offset || 0, configs.length - 1) : 0;
+    const offset = 0;
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
-    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: previous.checkExit, serviceIds: previous.serviceIds, protocolIds: previous.protocolIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds }));
   }
   const serviceCheckMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/services$/);
   if (request.method === 'POST' && serviceCheckMatch) {

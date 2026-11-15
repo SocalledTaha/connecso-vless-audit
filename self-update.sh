@@ -9,6 +9,8 @@ STATE_FILE="$DATA_DIR/install-state.env"
 REQUEST="$DATA_DIR/results/update-request.json"
 STATUS="$DATA_DIR/results/update-status.json"
 LOCK="$DATA_DIR/update.lock"
+stage="startup"
+backup=""
 
 exec 9>"$LOCK"
 flock -n 9 || exit 0
@@ -32,9 +34,26 @@ PY
   mv -f -- "$temp" "$STATUS"
 }
 fail() { status_written=1; write_status failed "$1" updateFailed; exit 1; }
-on_exit() { local code=$?; if (( code != 0 && status_written == 0 )); then write_status failed "Update process stopped unexpectedly." || true; fi; }
+on_error() {
+  local code="$1" line="$2" command="$3"
+  (( code != 0 )) || return 0
+  trap - ERR
+  status_written=1
+  local detail="Unexpected failure during ${stage} (line ${line}, exit ${code}): ${command}"
+  write_status failed "$detail" updateFailed || true
+  logger -t connecso-panel-update -- "$detail" 2>/dev/null || true
+  if [[ -n "$backup" && -s "$backup" ]]; then
+    tar -C "$APP_DIR" -xzf "$backup" 2>/dev/null || true
+    systemctl restart "$APP_NAME.service" 2>/dev/null || true
+    rm -f -- "$backup" 2>/dev/null || true
+  fi
+  exit "$code"
+}
+on_exit() { local code=$?; if (( code != 0 && status_written == 0 )); then write_status failed "Update stopped unexpectedly during ${stage} (exit ${code})." || true; fi; }
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 trap on_exit EXIT
 
+stage="checking installation"
 write_status checking "" updateChecking
 [[ -r "$STATE_FILE" ]] || fail "Installer state is missing."
 # The installer writes this root-owned file with shell-escaped values.
@@ -47,10 +66,12 @@ PROJECT_DIR="${PROJECT_DIR:-}"
 branch="$(git -C "$PROJECT_DIR" branch --show-current)"
 [[ "$branch" == main ]] || fail "The source checkout is not on the main branch."
 
+stage="fetching GitHub source"
 write_status downloading "" updateDownloading
 git -C "$PROJECT_DIR" fetch --prune origin main >/dev/null 2>&1 || fail "Could not fetch the latest GitHub version."
 git -C "$PROJECT_DIR" merge --ff-only origin/main >/dev/null 2>&1 || fail "The local checkout cannot be updated safely."
 
+stage="backing up and installing panel files"
 write_status installing "" updatePreparing
 backup="$(mktemp /var/lib/vless-audit/panel-update-backup.XXXXXX.tar.gz)"
 backup_paths=(server.mjs src public)
@@ -73,6 +94,7 @@ if [[ -d "$PROJECT_DIR/public/assets" ]]; then
 fi
 install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
 install -o root -g root -m 0755 "$PROJECT_DIR/self-update.sh" /usr/local/lib/connecso-tools/self-update.sh
+stage="installing panel dependencies"
 write_status installing "" updateDependencies
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
@@ -88,6 +110,7 @@ chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
 find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
 find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
 
+stage="restarting and checking panel service"
 write_status restarting "" updateRestarting
 if ! systemctl restart "$APP_NAME.service"; then
   tar -C "$APP_DIR" -xzf "$backup"

@@ -20,7 +20,7 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 - Expand any working route to check all 61 social, public/AI, gaming, and driver/support destinations through a separate interactive Xray process. Click a service to monitor it every five seconds; stop that monitor with the same button.
 - Choose the Xray worker count automatically from available server memory. Each worker checks up to 10 routes concurrently, using separate, non-overlapping sections of the subscription.
 - Filter by country and protocol, search, sort, identify duplicates, and copy/download country-grouped JSON.
-- Reopen or rescan saved audits; give a saved audit a custom name and tags or mark it as a favorite.
+- Reopen or rescan saved audits. A rescan fetches the saved subscription again from the beginning and lets you choose protocols such as Shadowsocks; update the subscription URL in the rescan options when needed. Give saved audits a custom name and tags or mark them as a favorite.
 - Recheck a route or all routes in a country and optionally run a five-second multi-connection download check on the interactive worker.
 - Use the Persian/English interface, light/dark themes, and password-protected administrator login.
 

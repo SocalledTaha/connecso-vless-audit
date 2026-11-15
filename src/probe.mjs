@@ -184,27 +184,45 @@ async function refreshGeoDatabase() {
   return geoReader;
 }
 
+export function interpretServiceHttpStatus(status) {
+  const code = Number(status);
+  const hasResponse = Number.isInteger(code) && code >= 100 && code <= 599;
+  return {
+    ok: hasResponse && code >= 200 && code < 400,
+    reachable: hasResponse,
+    state: !hasResponse ? 'route-error' : code >= 200 && code < 400 ? 'ok' : 'http-error',
+  };
+}
+
 async function checkService(target, port, signal) {
   try {
     const result = await execFileAsync('curl', [
-      '-sS', '-L', '--max-redirs', '3', '-o', '/dev/null', '--connect-timeout', '4', '--max-time', '7',
+      '-sS', '-L', '--max-redirs', '10', '-A', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', '-o', '/dev/null', '--connect-timeout', '5', '--max-time', '12',
       '-x', 'socks5h://127.0.0.1:' + port,
       '-w', '%{http_code}\t%{time_total}', target.url,
-    ], { timeout: 8000, maxBuffer: 1024 * 1024, ...(signal ? { signal } : {}) });
+    ], { timeout: 13000, maxBuffer: 1024 * 1024, ...(signal ? { signal } : {}) });
     const [rawStatus, rawSeconds] = String(result.stdout).trim().split('\t');
     const status = Number(rawStatus) || 0;
     const seconds = Number(rawSeconds);
+    // HTTP responses prove that the route reached the service's web edge.
+    // 5xx responses are still reachability; they may be an origin/service issue.
     return {
       id: target.id,
       name: target.name,
       group: target.group,
-      ok: status >= 200 && status < 500,
+      ...interpretServiceHttpStatus(status),
       status,
       ms: Number.isFinite(seconds) ? Math.round(seconds * 1000) : null,
+      error: '',
     };
   } catch (error) {
     if (signal?.aborted) throw signal.reason || error;
-    return { id: target.id, name: target.name, group: target.group, ok: false, status: 0, ms: null };
+    const detail = String(error?.stderr || error?.message || 'request failed').trim();
+    const category = /timed out|timeout/i.test(detail) ? 'timeout'
+      : /Could not resolve|resolve host|name or service not known/i.test(detail) ? 'dns'
+        : /SSL|TLS|certificate/i.test(detail) ? 'tls'
+          : /Connection refused/i.test(detail) ? 'refused' : 'network';
+    return { id: target.id, name: target.name, group: target.group, ok: false, reachable: false, state: 'route-error', status: 0, ms: null, error: category };
   }
 }
 

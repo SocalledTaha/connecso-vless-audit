@@ -317,7 +317,7 @@ ExecStart=/usr/local/lib/connecso-tools/self-update.sh
 ProtectSystem=strict
 ProtectHome=false
 PrivateTmp=true
-ReadWritePaths="$APP_DIR" "$DATA_DIR" "$PROJECT_DIR"
+ReadWritePaths="$APP_DIR" "$DATA_DIR" "$PROJECT_DIR" /usr/local/lib/connecso-tools
 EOF
 cat > /etc/systemd/system/vless-audit-self-update.path <<EOF
 [Unit]
