@@ -36,6 +36,7 @@ const dictionaries = {
     allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${n} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${number(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
     footerBrand:'بخشی از خانوادهٔ پروژه‌های Connecso', footerByline:'ساخته‌شده توسط Taha', footerDownload:'Get Connecso Client', footerDownloadTip:'Get the V2Ray-based VPN client for Windows and Android.',
     askUrl:'آدرس HTTPS اشتراک را وارد کن.', askText:'متن کانفیگ‌ها را وارد کن.', reading:'در حال خواندن و اعتبارسنجی ورودی…',
+    replacePingConfirm:'پینگ فهرست قبلی هنوز در حال اجراست. متوقفش کنم و بررسی اشتراک جدید را همین حالا شروع کنم؟',
     newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر کانفیگ دریافت نشد.',
     serviceHint:'دسترسی فقط با درخواست HTTPS بررسی می‌شود؛ وضعیت ممکن است با محدودیت منطقه‌ای سرویس فرق داشته باشد.',
     updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
@@ -70,6 +71,7 @@ const dictionaries = {
     allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${number(n)} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
     footerBrand:'Part of the Connecso Projects family', footerByline:'Made by Taha', footerDownload:'Get Connecso Client', footerDownloadTip:'Get the V2Ray-based VPN client for Windows and Android.',
     askUrl:'Enter an HTTPS subscription URL.', askText:'Paste one or more supported configs.', reading:'Reading and validating input…',
+    replacePingConfirm:'The previous list ping is still running. Stop it and start checking this new subscription now?',
     newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this route.',
     serviceHint:'Checks use HTTPS requests only; regional service restrictions may affect availability.',
     updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking for a new version…', updateDownloading:'Downloading files…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
@@ -77,7 +79,7 @@ const dictionaries = {
   },
 };
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '' };
+const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '' };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -110,7 +112,7 @@ function showError(message = '') { elements.error.textContent = message; element
 async function api(path, options = {}) {
   const response = await fetch(path, { cache: 'no-store', ...options });
   let data; try { data = await response.json(); } catch { throw new Error(state.lang === 'fa' ? 'پاسخ سرور قابل خواندن نبود.' : 'The server response could not be read.'); }
-  if (!response.ok) throw new Error(data.error || `${state.lang === 'fa' ? 'خطای سرور' : 'Server error'} (${response.status})`);
+  if (!response.ok) { const error = new Error(data.error || `${state.lang === 'fa' ? 'خطای سرور' : 'Server error'} (${response.status})`); error.code = data.code || ''; throw error; }
   return data;
 }
 const UPDATE_ACTIVE = new Set(['queued','checking','downloading','installing','restarting']);
@@ -143,7 +145,7 @@ async function watchUpdate() {
     }
   } catch { window.setTimeout(watchUpdate, 1800); }
 }
-function setBusy(busy) { state.busy = busy; elements.start.disabled = busy; elements.start.querySelector('span:first-child').textContent = t(busy ? 'busy' : 'start'); }
+function setBusy(busy, kind = '') { state.busy = busy; state.busyKind = busy ? (kind || 'other') : ''; elements.start.disabled = busy && state.busyKind !== 'ping-all'; elements.start.querySelector('span:first-child').textContent = busy && state.busyKind !== 'ping-all' ? t('busy') : t('start'); }
 function setProgress(job, detail = '') {
   state.lastJob = job; elements.progress.hidden = false;
   elements.progressTitle.textContent = job.finished ? (job.interrupted ? t('interrupted') : t('completed')) : t('connecting');
@@ -328,7 +330,7 @@ async function rerunPing(index, button) {
 async function rerunCountryPings(country, button) {
   const items=state.currentResults.filter((item)=>(item.country||t('countryUnknown'))===country&&item.ok&&item.uri);
   if(!items.length||state.busy)return;
-  const original=button.textContent;setBusy(true);button.disabled=true;button.textContent=t('pingAllChecking');
+  const original=button.textContent;setBusy(true,'ping-all');button.disabled=true;button.textContent=t('pingAllChecking');
   try{
     const data=await api('/api/jobs/'+encodeURIComponent(state.currentJob)+'/results/ping-all',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uris:items.map(item=>item.uri)})});
     const updated=[];
@@ -336,7 +338,7 @@ async function rerunCountryPings(country, button) {
     renderResults();
     requestAnimationFrame(()=>updated.forEach(item=>{const index=state.currentResults.indexOf(item);const card=elements.countries.querySelector('[data-result-index="'+index+'"]');if(!card)return;card.classList.add('ping-updated');window.setTimeout(()=>card.classList.remove('ping-updated'),2800);}));
   }catch(error){showError(error.message);}
-  finally{setBusy(false);button.disabled=false;button.textContent=original;}
+  finally{if(state.busyKind==='ping-all')setBusy(false);button.disabled=false;button.textContent=original;}
 }
 async function runDownloadTest(index, button) {
   const item=state.currentResults[index]; if(!item?.uri||state.busy)return;
@@ -412,13 +414,22 @@ document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()
   const isUrl=tab.dataset.mode==='url';$('#url-mode').hidden=!isUrl;$('#text-mode').hidden=isUrl;showError();
 }));
 elements.form.addEventListener('submit',async(event)=>{
-  event.preventDefault();if(state.busy)return;showError();const isUrl=!$('#url-mode').hidden;
+  event.preventDefault();const replacingPing=state.busy&&state.busyKind==='ping-all';if(state.busy&&!replacingPing)return;showError();const isUrl=!$('#url-mode').hidden;
     const protocolIds=[...document.querySelectorAll('.protocol-option:checked')].map((input)=>input.value);if(!protocolIds.length)return showError(t('noProtocols'));const payload={offset:Number(elements.offset.value||0),batchSize:Number($('#batch-size').value||10),protocolIds,checkExit:$('#check-exit').checked,serviceIds:[...document.querySelectorAll('.service-option:checked')].map((input)=>input.value)};
   if(isUrl)payload.subscriptionUrl=elements.url.value.trim();else payload.text=elements.text.value.trim();
   if(isUrl&&!payload.subscriptionUrl)return showError(t('askUrl'));if(!isUrl&&!payload.text)return showError(t('askText'));
-  setBusy(true);elements.progress.hidden=false;setProgress({id:'',done:0,total:0,success:0,finished:false},t('reading'));
-  try{const job=await api('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});await monitorJob(job);}
-  catch(error){showError(error.message);elements.progress.hidden=true;}finally{setBusy(false);}
+  if(!replacingPing)setBusy(true,'audit');elements.progress.hidden=false;setProgress({id:'',done:0,total:0,success:0,finished:false},t('reading'));
+  try{
+    let job;
+    try { job=await api('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}); setBusy(true,'audit'); }
+    catch(error) {
+      if(error.code!=='PING_ALL_ACTIVE'||!window.confirm(t('replacePingConfirm')))throw error;
+      setBusy(true,'audit');
+      job=await api('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,replacePingAll:true})});
+    }
+    await monitorJob(job);
+  }
+  catch(error){showError(error.message);elements.progress.hidden=true;}finally{if(!replacingPing||state.busyKind==='audit')setBusy(false);}
 });
 $('#refresh-history').addEventListener('click',loadHistory);elements.search.addEventListener('input',renderResults);
 document.querySelectorAll('.view-tab').forEach((tab)=>tab.addEventListener('click',()=>{state.view=tab.dataset.view;document.querySelectorAll('.view-tab').forEach((item)=>{const selected=item===tab;item.classList.toggle('active',selected);item.setAttribute('aria-selected',String(selected));});renderResults();}));

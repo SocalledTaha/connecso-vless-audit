@@ -31,6 +31,7 @@ function filterProtocols(configs, ids) {
 const jobs = await loadJobs(RESULTS);
 const MAX_RECOVERY_RETRIES = 5;
 let activeJob = null;
+let activeOperation = null;
 const sessions = new Map();
 
 if (!PASSWORD) throw new Error('PANEL_PASSWORD تنظیم نشده است.');
@@ -67,8 +68,8 @@ function sendJson(response, status, value) {
   response.end(body);
 }
 
-function fail(response, status, message) {
-  sendJson(response, status, { error: message });
+function fail(response, status, message, code = '') {
+  sendJson(response, status, { error: message, ...(code ? { code } : {}) });
 }
 
 async function readBody(request) {
@@ -532,12 +533,17 @@ async function route(request, response) {
       selected.push({ uri, item, config });
     }
     activeJob = 'ping-all-' + pingAllMatch[1];
+    const controller = new AbortController();
+    let finishOperation;
+    const done = new Promise((resolve) => { finishOperation = resolve; });
+    const operation = { kind: 'ping-all', controller, done };
+    activeOperation = operation;
     try {
       const updates = [];
       for (let start = 0; start < selected.length; start += 20) {
         const chunk = selected.slice(start, start + 20);
         const countries = Object.fromEntries(chunk.filter(({item}) => item.ip).map(({item}) => [item.ip, item.country || '']));
-        const checks = await testBatch(chunk.map(({config}) => config), countries, { checkExit: false, checkServices: false, concurrency: 4 });
+        const checks = await testBatch(chunk.map(({config}) => config), countries, { checkExit: false, checkServices: false, concurrency: 4, signal: controller.signal, throwBatchErrors: true });
         checks.forEach((check, index) => {
           const { uri, item } = chunk[index];
           item.endpointPingMs = check.endpointPingMs ?? null;
@@ -548,9 +554,14 @@ async function route(request, response) {
       }
       return sendJson(response, 200, { results: updates });
     } catch (error) {
+      if (controller.signal.aborted) return sendJson(response, 200, { cancelled: true, results: [] });
       return fail(response, 502, error.message || 'Country ping checks failed.');
     } finally {
-      activeJob = null;
+      if (activeOperation === operation) {
+        activeOperation = null;
+        activeJob = null;
+      }
+      finishOperation();
     }
   }
   const routeAction = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/(ping|download)$/);
@@ -598,12 +609,19 @@ async function route(request, response) {
     return sendJson(response, 200, { ...summary(job), offset, results: results.slice(offset, offset + limit) });
   }
   if (request.method === 'POST' && url.pathname === '/api/analyze') {
-    if (activeJob) return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
     let input;
     try {
       input = JSON.parse(await readBody(request));
     } catch (error) {
       return fail(response, error.status || 400, error.status ? error.message : 'متن درخواست JSON معتبر نیست.');
+    }
+    if (activeJob) {
+      if (activeOperation?.kind === 'ping-all' && input.replacePingAll !== true) {
+        return fail(response, 409, 'در حال حاضر پینگ گروهی در حال اجراست.', 'PING_ALL_ACTIVE');
+      }
+      if (activeOperation?.kind !== 'ping-all') {
+        return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
+      }
     }
     let text = String(input.text || '');
     if (input.subscriptionUrl) {
@@ -624,6 +642,15 @@ async function route(request, response) {
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.isFinite(requestedBatch) ? requestedBatch : MAX_CONCURRENT_CHECKS));
     const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
     const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
+    if (activeJob) {
+      if (activeOperation?.kind === 'ping-all' && input.replacePingAll === true) {
+        const previousOperation = activeOperation;
+        previousOperation.controller.abort(new Error('پینگ گروهی با درخواست جدید جایگزین شد.'));
+        await previousOperation.done;
+      } else {
+        return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
+      }
+    }
     return sendJson(response, 202, await beginJob(configs, offset, batchSize, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds }));
   }
   return fail(response, 404, 'این مسیر پیدا نشد.');

@@ -97,13 +97,13 @@ export async function geoMap(addresses) {
   return countries;
 }
 
-async function checkService(target, port) {
+async function checkService(target, port, signal) {
   try {
     const result = await execFileAsync('curl', [
       '-sS', '-o', '/dev/null', '--connect-timeout', '4', '--max-time', '7',
       '-x', 'socks5h://127.0.0.1:' + port,
       '-w', '%{http_code}\t%{time_total}', target.url,
-    ], { timeout: 8000, maxBuffer: 1024 * 1024 });
+    ], { timeout: 8000, maxBuffer: 1024 * 1024, ...(signal ? { signal } : {}) });
     const [rawStatus, rawSeconds] = String(result.stdout).trim().split('\t');
     const status = Number(rawStatus) || 0;
     const seconds = Number(rawSeconds);
@@ -114,7 +114,8 @@ async function checkService(target, port) {
       status,
       ms: Number.isFinite(seconds) ? Math.round(seconds * 1000) : null,
     };
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason || error;
     return { id: target.id, name: target.name, ok: false, status: 0, ms: null };
   }
 }
@@ -130,20 +131,25 @@ async function reservePort() {
   return port;
 }
 
-function waitForSocks(child, port, timeoutMs = 3500) {
+function waitForSocks(child, port, timeoutMs = 3500, signal) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
     let settled = false;
+    let timer;
     const finish = (error) => {
       if (settled) return;
       settled = true;
       clearInterval(timer);
       child.off('exit', onExit);
+      signal?.removeEventListener('abort', onAbort);
       error ? reject(error) : resolve();
     };
     const onExit = () => finish(new Error('Xray outbound راه نیفتاد.'));
+    const onAbort = () => finish(signal.reason || new Error('بررسی لغو شد.'));
+    if (signal?.aborted) return onAbort();
     child.once('exit', onExit);
-    const timer = setInterval(() => {
+    signal?.addEventListener('abort', onAbort, { once: true });
+    timer = setInterval(() => {
       if (Date.now() - started > timeoutMs) return finish(new Error('مهلت راه‌اندازی Xray تمام شد.'));
       const socket = connect({ host: '127.0.0.1', port });
       socket.setTimeout(200);
@@ -181,7 +187,7 @@ async function testThroughSocks(config, base, port, options = {}) {
       '-x', 'socks5h://127.0.0.1:' + port,
       '-w', '%{http_code}\t%{time_connect}\t%{time_appconnect}\t%{time_starttransfer}',
       RTT_TARGET,
-    ], { timeout: 10500, maxBuffer: 1024 * 1024 });
+    ], { timeout: 10500, maxBuffer: 1024 * 1024, ...(options.signal ? { signal: options.signal } : {}) });
     const [statusRaw, proxyRaw, tlsRaw, firstByteRaw] = String(result.stdout).trim().split('\t').map(Number);
     const proxyConnectMs = Number.isFinite(proxyRaw) ? Math.round(proxyRaw * 1000) : null;
     const tlsConnectMs = Number.isFinite(tlsRaw) ? Math.round(tlsRaw * 1000) : null;
@@ -199,13 +205,14 @@ async function testThroughSocks(config, base, port, options = {}) {
       const ipResult = await execFileAsync('curl', [
         '-fsS', '--connect-timeout', '5', '--max-time', '9',
         '-x', 'socks5h://127.0.0.1:' + port, 'https://api.ipify.org',
-      ], { timeout: 10500, maxBuffer: 1024 * 1024 });
+      ], { timeout: 10500, maxBuffer: 1024 * 1024, ...(options.signal ? { signal: options.signal } : {}) });
       base.exit = String(ipResult.stdout).trim();
     }
     base.ok = base.httpStatus >= 200 && base.httpStatus < 400 && (!checkExit || Boolean(base.exit));
     if (!base.ok) base.error = 'پاسخ HTTPS از مسیر این کانفیگ دریافت نشد.';
-    else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port)));
+    else if (serviceIds.size) base.services = await Promise.all(SERVICE_TARGETS.filter((target) => serviceIds.has(target.id)).map((target) => checkService(target, port, options.signal)));
   } catch (error) {
+    if (options.signal?.aborted) throw options.signal.reason || error;
     base.error = error.message || 'اتصال HTTPS از مسیر کانفیگ ناموفق بود.';
   }
   return base;
@@ -270,6 +277,7 @@ export async function testOne(config, countries, options = {}) {
 }
 
 export async function testBatch(configs, countries, options = {}) {
+  if (options.signal?.aborted) throw options.signal.reason || new Error('بررسی لغو شد.');
   const results = new Array(configs.length);
   const entries = [];
   await Promise.all(configs.map(async (config, index) => {
@@ -299,12 +307,18 @@ export async function testBatch(configs, countries, options = {}) {
   const ports = await Promise.all(entries.map(() => reservePort()));
   const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-batch-'));
   let child;
+  const abortChild = () => {
+    if (child?.pid && child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+  };
+  options.signal?.addEventListener('abort', abortChild, { once: true });
   try {
+    if (options.signal?.aborted) throw options.signal.reason || new Error('بررسی لغو شد.');
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayBatchConfig(entries.map((item) => item.config), ports)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
     child.setMaxListeners(Math.max(10, ports.length + 2));
-    await Promise.all(ports.map((port) => waitForSocks(child, port)));
+    if (options.signal?.aborted) abortChild();
+    await Promise.all(ports.map((port) => waitForSocks(child, port, 3500, options.signal)));
     const checked = new Array(entries.length);
     const concurrency = Math.min(entries.length, Math.max(1, Number(options.concurrency) || entries.length));
     let cursor = 0;
@@ -316,6 +330,7 @@ export async function testBatch(configs, countries, options = {}) {
     }));
     checked.forEach((result, index) => { results[entries[index].index] = result; });
   } catch (error) {
+    if (options.signal?.aborted) throw options.signal.reason || error;
     if (options.throwBatchErrors) throw error;
     for (const item of entries) {
       if (!results[item.index]) {
@@ -324,6 +339,7 @@ export async function testBatch(configs, countries, options = {}) {
       }
     }
   } finally {
+    options.signal?.removeEventListener('abort', abortChild);
     await stopXray(child, directory);
   }
   return results;
