@@ -45,7 +45,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-
 The installer asks for the panel domain, HTTPS port, optional certificate email, and administrator password. If installation is interrupted, run the same command again to resume from its saved stage.
 
 ## ⚙️ Manage the panel
-After installation, enter `ConnecsoTools` (case-insensitive) to open maintenance. The menu can renew/reissue TLS, change the domain or HTTPS port, diagnose the panel and show recent logs, update from GitHub, restart the service, and change the administrator password.
+After installation, enter `ConnecsoTools` (any letter case) or `CTS`/`cts` to open maintenance. The menu can renew/reissue TLS, change the domain or HTTPS port, diagnose the panel and show recent logs, update from GitHub, restart the service, and change the administrator password.
 
 The panel also has an **Update** button for installing the latest GitHub version. It runs in the background, keeps saved audits and credentials, restarts only this panel, and reloads the page when ready. Each audit can process up to 2,500 configurations; results are saved in batches, so you can close the browser and return to History later.
 

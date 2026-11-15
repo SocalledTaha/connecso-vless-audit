@@ -21,6 +21,7 @@ rm -f "/etc/systemd/system/$APP_NAME.service" \
 systemctl daemon-reload
 rm -rf -- "$APP_DIR" "$CONFIG_DIR"
 rm -f /usr/local/bin/ConnecsoTools /usr/local/bin/connecsotools /usr/local/bin/CONNECSOTOOLS
+rm -f /usr/local/bin/CTS /usr/local/bin/cts /usr/local/bin/Cts /usr/local/bin/cTs /usr/local/bin/ctS /usr/local/bin/CTs /usr/local/bin/CtS /usr/local/bin/cTS
 rm -rf -- /usr/local/lib/connecso-tools
 rm -f /etc/letsencrypt/renewal-hooks/pre/20-vless-audit \
   /etc/letsencrypt/renewal-hooks/post/20-vless-audit \
