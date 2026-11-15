@@ -120,10 +120,17 @@ function showUpdateStatus(status) {
   const button = $('#update-button');
   if (!output || !button) return;
   const active = UPDATE_ACTIVE.has(status.state);
+  output.dataset.updateId = status.id || status.state;
   output.hidden = status.state === 'idle';
   output.classList.toggle('is-error', status.state === 'failed');
   output.textContent = status.state === 'complete' ? t('updateComplete') : status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : UPDATE_LABELS[status.state] ? t(UPDATE_LABELS[status.state]) : t('updateNoHelper');
   button.disabled = active;
+  if (status.state === 'complete') {
+    const shownUpdate = output.dataset.updateId;
+    window.setTimeout(() => {
+      if (output.dataset.updateId === shownUpdate) output.hidden = true;
+    }, 5000);
+  }
 }
 async function watchUpdate() {
   try {
