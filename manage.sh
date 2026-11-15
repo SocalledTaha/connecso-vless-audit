@@ -24,6 +24,7 @@ ok() { printf '%s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
 warn() { printf '%s!%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
 fail() { printf '%sError:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; }
 port_listening() { ss -H -ltn "sport = :$1" 2>/dev/null | grep -q .; }
+port_listeners() { ss -H -ltnp "sport = :$1" 2>/dev/null || true; }
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || { fail 'Run ConnecsoTools with sudo.'; exit 1; }
 [[ -r "$STATE_FILE" && -r "$ENV_FILE" ]] || { fail 'The panel installation or its state files are missing.'; exit 1; }
@@ -61,20 +62,37 @@ restore_web_services() {
   done
   STOPPED_SERVICES=()
 }
-trap 'restore_web_services' EXIT INT TERM
+trap 'restore_web_services' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 stop_http_services_if_needed() {
-  local service found=0
+  local service pid cgroup unit attempt listeners
+  local -a owners=()
   if ! port_listening 80; then return 0; fi
-  for service in apache2 nginx caddy lighttpd; do
-    if systemctl is-active --quiet "$service" && systemctl list-units --type=service --state=active --no-legend | awk '{print $1}' | grep -Fxq "$service.service"; then
-      STOPPED_SERVICES+=("$service")
-      found=1
-    fi
+  while read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cgroup" ]] || continue
+    cgroup="$(cat "/proc/$pid/cgroup" 2>/dev/null || true)"
+    unit="$(grep -oE '[^/]+\.service' <<< "$cgroup" | tail -n 1 || true)"
+    [[ -n "$unit" ]] || continue
+    systemctl is-active --quiet "$unit" || continue
+    [[ " ${owners[*]} " == *" $unit "* ]] || owners+=("$unit")
+  done < <(port_listeners 80 | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+  if ((${#owners[@]} == 0)); then
+    listeners="$(port_listeners 80)"
+    fail "TCP/80 is occupied by a process not managed by a detectable systemd service. Current listener: ${listeners:-unknown}. No process was killed."
+    return 1
+  fi
+  STOPPED_SERVICES+=("${owners[@]}")
+  say "Temporarily stopping ${owners[*]} so the certificate authority can validate HTTP-01."
+  for service in "${owners[@]}"; do systemctl stop "$service"; done
+  for attempt in {1..20}; do
+    if ! port_listening 80; then return 0; fi
+    sleep 0.5
   done
-  (( found )) || { fail 'TCP port 80 belongs to an unrecognized service. No service was stopped.'; return 1; }
-  say "Temporarily stopping ${STOPPED_SERVICES[*]} so the certificate authority can validate HTTP-01."
-  for service in "${STOPPED_SERVICES[@]}"; do systemctl stop "$service"; done
+  listeners="$(port_listeners 80)"
+  fail "TCP/80 remained occupied after stopping ${owners[*]}. Current listener: ${listeners:-unknown}. The stopped services will be restored automatically."
+  return 1
 }
 
 validate_domain() {

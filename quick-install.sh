@@ -12,7 +12,7 @@ command -v apt-get >/dev/null 2>&1 || { echo 'Ubuntu or Debian is required.' >&2
 
 if ! command -v git >/dev/null 2>&1; then
   apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y git
+  NEEDRESTART_MODE=l DEBIAN_FRONTEND=noninteractive apt-get install -y git
 fi
 
 install -d -m 0755 "$(dirname "$PROJECT_DIR")"

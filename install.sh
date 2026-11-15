@@ -51,6 +51,33 @@ ask_value() {
 port_listening() {
   command -v ss >/dev/null 2>&1 && ss -H -ltn "sport = :$1" | grep -q .
 }
+port_listeners() { ss -H -ltnp "sport = :$1" 2>/dev/null || true; }
+stop_http_services_if_needed() {
+  local service pid cgroup unit attempt listeners
+  local -a owners=()
+  port_listening 80 || return 0
+  while read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cgroup" ]] || continue
+    cgroup="$(cat "/proc/$pid/cgroup" 2>/dev/null || true)"
+    unit="$(grep -oE '[^/]+\.service' <<< "$cgroup" | tail -n 1 || true)"
+    [[ -n "$unit" ]] || continue
+    systemctl is-active --quiet "$unit" || continue
+    [[ " ${owners[*]} " == *" $unit "* ]] || owners+=("$unit")
+  done < <(port_listeners 80 | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+  if ((${#owners[@]} == 0)); then
+    listeners="$(port_listeners 80)"
+    die "TCP/80 is still occupied by a process not managed by a detectable systemd service. Current listener: ${listeners:-unknown}. Stop or reconfigure it, then rerun; no process was killed."
+  fi
+  ACTIVE_HTTP_SERVICES+=("${owners[@]}")
+  printf 'Temporarily stopping: %s (HTTP-01 needs TCP/80).\n' "${owners[*]}"
+  for service in "${owners[@]}"; do systemctl stop "$service"; done
+  for attempt in {1..20}; do
+    port_listening 80 || return 0
+    sleep 0.5
+  done
+  listeners="$(port_listeners 80)"
+  die "TCP/80 remained occupied after stopping ${owners[*]}. Current listener: ${listeners:-unknown}. The stopped services will be restored automatically."
+}
 restore_http_services() {
   local service
   for service in "${ACTIVE_HTTP_SERVICES[@]:-}"; do
@@ -59,7 +86,9 @@ restore_http_services() {
   done
   ACTIVE_HTTP_SERVICES=()
 }
-trap 'restore_http_services' EXIT INT TERM
+trap 'restore_http_services' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die 'Run this installer as root.'
 command -v apt-get >/dev/null 2>&1 || die 'This installer currently supports Ubuntu and Debian.'
@@ -98,7 +127,7 @@ fi
 if (( STAGE < 2 )); then
   printf '\n[1/5] Installing required system packages…\n'
   apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git iputils-ping
+  NEEDRESTART_MODE=l DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git iputils-ping
   CERTBOT="$(command -v certbot)"
   STAGE=2; save_state
 fi
@@ -165,21 +194,9 @@ if (( STAGE < 5 )); then
     die "None of those A records matches this server's public IPv4 ($PUBLIC_IP). Point an A record directly to this server and rerun."
   fi
   if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Domains: $DOMAIN"; then
-    # HTTP-01 standalone needs inbound TCP/80. Stop only known web services that
-    # are both active and currently listening on port 80; remember and restore them.
-    if port_listening 80; then
-      for service in apache2 nginx caddy lighttpd; do
-        if systemctl is-active --quiet "$service" && systemctl list-units --type=service --state=active --no-legend | awk '{print $1}' | grep -Fxq "$service.service"; then
-          ACTIVE_HTTP_SERVICES+=("$service")
-        fi
-      done
-      if ((${#ACTIVE_HTTP_SERVICES[@]})); then
-        printf 'Temporarily stopping: %s (HTTP-01 needs TCP/80).\n' "${ACTIVE_HTTP_SERVICES[*]}"
-        for service in "${ACTIVE_HTTP_SERVICES[@]}"; do systemctl stop "$service"; done
-      else
-        die 'TCP/80 is occupied by an unrecognized service. Free port 80, then rerun; no service was stopped.'
-      fi
-    fi
+    # HTTP-01 standalone always binds TCP/80. Stop the systemd service(s)
+    # owning the actual listeners and verify the port is free before Certbot.
+    stop_http_services_if_needed
     if [[ -n "$ADMIN_EMAIL" ]]; then
       "$CERTBOT" certonly --standalone --preferred-challenges http --non-interactive --agree-tos --email "$ADMIN_EMAIL" -d "$DOMAIN"
     else
