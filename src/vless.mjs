@@ -248,7 +248,9 @@ function buildOutbound(config, tag) {
   if (security === 'tls') stream.tlsSettings = { serverName, allowInsecure:false, fingerprint:q.fp || 'chrome' };
   else if (security === 'reality') stream.realitySettings = { serverName, fingerprint:q.fp || 'chrome', publicKey:q.pbk || '', shortId:q.sid || '', spiderX:q.spx || '/' };
   else if (security !== 'none') throw new Error('نوع رمزنگاری این کانفیگ پشتیبانی نمی‌شود.');
-  if (q.alpn) (security === 'reality' ? stream.realitySettings : stream.tlsSettings).alpn = String(q.alpn).split(',');
+  if (q.alpn && ['tls','reality'].includes(security)) {
+    stream[security === 'reality' ? 'realitySettings' : 'tlsSettings'].alpn = String(q.alpn).split(',');
+  }
   if (network === 'tcp') stream.tcpSettings = { header:{ type:q.headerType || 'none' } };
   else if (network === 'ws') stream.wsSettings = { path:q.path || '/', headers:q.host ? { Host:q.host } : {} };
   else if (network === 'grpc') stream.grpcSettings = { serviceName:q.serviceName || q.path || '', authority:q.authority || '' };

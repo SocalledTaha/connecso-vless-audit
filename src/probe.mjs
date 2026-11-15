@@ -120,14 +120,16 @@ function waitForSocks(child, port, timeoutMs = 3500) {
 }
 
 function resultBase(config, countries) {
+  let outbound = null;
+  try { outbound = toPanelOutbound(config); } catch {}
   return {
     name: config.name,
     endpoint: config.host + ':' + config.port,
     protocol: config.protocol,
     transport: config.transport,
-    security: config.security.toUpperCase(),
-    plugin: config.params.plugin || '',
-    outbound: toPanelOutbound(config),
+    security: String(config.security || 'none').toUpperCase(),
+    plugin: config.params?.plugin || '',
+    outbound,
     ip: '',
     country: '',
     ok: false,
