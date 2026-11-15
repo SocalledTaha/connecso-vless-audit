@@ -17,6 +17,7 @@ export async function loadJobs(directory) {
       job.title = String(job.title || '');
       job.tags = Array.isArray(job.tags) ? job.tags : [];
       job.favorite = Boolean(job.favorite);
+      job.recoveryRetries = Math.max(0, Math.min(5, Number.parseInt(job.recoveryRetries, 10) || 0));
       job.protocolIds = Array.isArray(job.protocolIds) ? job.protocolIds : null;
       for (const result of job.results) {
         if (result.ok && !result.outbound && result.uri) {
@@ -39,12 +40,13 @@ export async function loadJobs(directory) {
   if (legacyRecent) legacyRecent.resumeEligible = true;
 
   const resumable = incomplete
-    .filter((job) => job.resumeEligible && ((Array.isArray(job.scanConfigs) && job.scanConfigs.length) || job.subscriptionUrl))
+    .filter((job) => job.resumeEligible && Number(job.recoveryRetries || 0) < 5
+      && ((Array.isArray(job.scanConfigs) && job.scanConfigs.length) || job.subscriptionUrl))
     .sort((a, b) => createdAt(b) - createdAt(a));
   const resumeId = resumable[0]?.id;
   for (const job of jobs.values()) {
     const isIncomplete = Number(job.done) < Number(job.total);
-    job.resumeEligible = Boolean(isIncomplete && job.id === resumeId);
+    job.resumeEligible = Boolean(isIncomplete && job.id === resumeId && Number(job.recoveryRetries || 0) < 5);
     if (job.resumeEligible) {
       job.finished = false;
       job.interrupted = true;
@@ -86,6 +88,7 @@ export async function saveJob(directory, job) {
     done: job.done, success: job.success, finished: job.finished,
     interrupted: Boolean(job.interrupted), ...(job.message ? { message: job.message } : {}),
     resumeEligible: Boolean(job.resumeEligible),
+    recoveryRetries: Math.max(0, Math.min(5, Number.parseInt(job.recoveryRetries, 10) || 0)),
     ...(job.error ? { error: String(job.error).slice(0, 500) } : {}),
     results: job.results.filter((item) => item.ok),
   };

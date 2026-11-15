@@ -29,6 +29,7 @@ function filterProtocols(configs, ids) {
   return configs.filter((config) => selected.has(config.protocol));
 }
 const jobs = await loadJobs(RESULTS);
+const MAX_RECOVERY_RETRIES = 5;
 let activeJob = null;
 const sessions = new Map();
 
@@ -201,6 +202,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
     finished: selected.length === 0,
     interrupted: false,
     resumeEligible: selected.length > 0,
+    recoveryRetries: 0,
     results: [],
     scanConfigs: selected,
     ...(message ? { message } : {}),
@@ -215,7 +217,7 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
   return summary(job);
 }
 
-async function runJob(job, configs, startAt = 0, recoveryAttempt = 0) {
+async function runJob(job, configs, startAt = 0) {
   job.error = '';
   job.interrupted = false;
   try {
@@ -232,23 +234,26 @@ async function runJob(job, configs, startAt = 0, recoveryAttempt = 0) {
       const results = await testBatch(batch, countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5 });
       job.results.push(...results);
       job.done += batch.length;
+      job.recoveryRetries = 0;
       job.success = job.results.reduce((count, item) => count + (item.ok ? 1 : 0), 0);
       await saveJob(RESULTS, job);
     }
   } catch (error) {
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
     console.error('audit job failed:', job.id, job.error);
-    if (job.done < job.total && recoveryAttempt < 2) {
+    if (job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
+      job.recoveryRetries = Number(job.recoveryRetries || 0) + 1;
       job.finished = false;
       job.interrupted = false;
       await saveJob(RESULTS, job).catch((saveError) => console.error('could not save interrupted audit:', saveError.message));
-      setTimeout(() => runJob(job, configs, job.done, recoveryAttempt + 1), 1200 * (recoveryAttempt + 1));
+      setTimeout(() => runJob(job, configs, job.done), 1200);
       return;
     }
   }
   job.finished = true;
   job.interrupted = Boolean(job.error && job.done < job.total);
-  job.resumeEligible = job.done < job.total && Boolean(job.scanConfigs?.length);
+  job.resumeEligible = job.done < job.total && Boolean(job.scanConfigs?.length)
+    && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES;
   activeJob = null;
   await saveJob(RESULTS, job);
   if (job.done >= job.total) {
@@ -262,8 +267,15 @@ async function resumePendingJobs() {
   if (activeJob) return;
   const pending = [...jobs.values()]
     .filter((job) => job.resumeEligible && !job.finished)
-    .sort((a, b) => String(a.created).localeCompare(String(b.created)));
-  for (const job of pending) {
+    .sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  const latest = pending[0];
+  for (const job of pending.slice(1)) {
+    job.resumeEligible = false;
+    job.finished = true;
+    job.interrupted = true;
+    await saveJob(RESULTS, job);
+  }
+  for (const job of latest ? [latest] : []) {
     activeJob = job.id;
     let configs = Array.isArray(job.scanConfigs) ? job.scanConfigs : null;
     if ((!configs || !configs.length) && job.subscriptionUrl) {
@@ -295,6 +307,14 @@ async function resumePendingJobs() {
       activeJob = null;
       await saveJob(RESULTS, job);
       await unlink(path.join(RESULTS, `${job.id}.scan.json`)).catch(() => {});
+      continue;
+    }
+    if (Number(job.recoveryRetries || 0) >= MAX_RECOVERY_RETRIES) {
+      job.finished = true;
+      job.interrupted = true;
+      job.resumeEligible = false;
+      activeJob = null;
+      await saveJob(RESULTS, job);
       continue;
     }
     job.interrupted = false;
