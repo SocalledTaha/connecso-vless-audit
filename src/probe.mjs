@@ -482,7 +482,9 @@ export async function testBatch(configs, countries, options = {}) {
   return results;
 }
 
-export async function testDownload(config) {
+export async function testDownload(config, options = {}) {
+  const { signal } = options;
+  if (signal?.aborted) throw signal.reason || new Error('آزمون دانلود متوقف شد.');
   const connections = 4;
   const port = await reservePort();
   const directory = await mkdtemp(path.join(tmpdir(), 'vless-audit-speed-'));
@@ -492,7 +494,7 @@ export async function testDownload(config) {
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayConfig(config, port)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
-    await waitForSocks(child, port);
+    await waitForSocks(child, port, 3500, signal);
     let bytes = 0;
     const statuses = [];
     const errors = [];
@@ -507,13 +509,20 @@ export async function testDownload(config) {
         for (const download of downloads) if (download.exitCode === null) download.kill('SIGTERM');
         finish(new Error(errors.join(' · ') || 'دانلود آزمایشی پس از مهلت اتصال متوقف شد.'));
       }, 24_000);
+      const onAbort = () => {
+        for (const download of downloads) if (download.exitCode === null && download.signalCode === null) download.kill('SIGTERM');
+        finish(signal.reason || new Error('آزمون دانلود متوقف شد.'));
+      };
       const finish = (error) => {
         if (settled) return;
         settled = true;
         clearTimeout(durationTimer);
         clearTimeout(guardTimer);
+        signal?.removeEventListener('abort', onAbort);
         if (error) reject(error); else resolve();
       };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) return onAbort();
       for (let index = 0; index < connections; index += 1) {
         const headersPath = path.join(directory, `response-headers-${index}.txt`);
         const args = [

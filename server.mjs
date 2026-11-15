@@ -555,7 +555,7 @@ async function runInteractiveTask(task, job, item, config) {
     } else if (task.kind === 'download') {
       task.status = 'running';
       task.total = 5;
-      task.result = await testDownload(config);
+      task.result = await testDownload(config, { signal });
       item.speedCheck = { ...task.result, checked: new Date().toISOString() };
       task.done = 5;
       await saveJob(RESULTS, job);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildXrayConfig, isPublicAddress, parseSubscription, toPanelOutbound } from './vless.mjs';
+import { testDownload } from './probe.mjs';
 
 const uuid = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
@@ -62,4 +63,10 @@ test('public address filter rejects local and reserved IPv4/IPv6 values', () => 
   }
   assert.equal(isPublicAddress('8.8.8.8'), true);
   assert.equal(isPublicAddress('2606:4700:4700::1111'), true);
+});
+
+test('download test respects an already-aborted interactive task', async () => {
+  const controller = new AbortController();
+  controller.abort(new Error('test cancellation'));
+  await assert.rejects(testDownload({}, { signal: controller.signal }), /test cancellation/);
 });
