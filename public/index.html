@@ -20,12 +20,14 @@
     </a>
     <div class="header-actions">
       <button id="language-toggle" class="header-toggle" type="button" aria-label="Switch language">EN</button>
-      <button id="theme-toggle" class="header-toggle theme-toggle" type="button" aria-label="Toggle theme"><span class="theme-symbol" aria-hidden="true">☼</span><span data-theme-label>تیره</span></button>
+      <button id="theme-toggle" class="header-toggle theme-toggle" type="button" aria-label="Toggle theme"><span class="theme-symbol" aria-hidden="true"></span><span data-theme-label>تیره</span></button>
+      <button id="update-button" class="header-toggle update-toggle" type="button" data-i18n="updateButton">به‌روزرسانی</button>
       <button id="logout-button" class="header-toggle" type="button" data-i18n="logout">خروج</button>
     </div>
   </header>
 
   <main id="main" class="layout">
+    <p id="update-status" class="update-status" role="status" aria-live="polite" hidden></p>
     <section class="tool-heading"><h1 data-i18n="toolTitle">بررسی اوتباند</h1><p data-i18n="toolSubtitle">بررسی، مقایسه و آماده‌سازی خروجی JSON</p></section>
 
     <section class="work-grid" aria-label="Outbound audit">

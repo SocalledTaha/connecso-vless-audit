@@ -19,25 +19,26 @@ const dictionaries = {
     encryptedOnly:'رمزنگاری', tlsRealityOnly:'TLS، Reality یا رمزنگاری پروتکل', fullConnection:'اتصال کامل', httpsReply:'پاسخ HTTPS از مسیر تونل', serviceAccess:'دسترسی سرویس',
     privacy:'بررسی سرویس‌ها فقط دسترسی HTTPS را می‌سنجد و ورود به حساب را آزمایش نمی‌کند.', running:'بررسی در حال اجرا',
     connecting:'در حال اتصال به کانفیگ‌ها', interrupted:'بررسی قبلی نیمه‌کاره ماند', completed:'بررسی تمام شد',
-    xrayRunning:'Xray در حال آزمایش مسیرهاست.', batchProgress:(n)=>`Xray در حال آزمایش دسته‌های ${faNum.format(n)}تایی است؛ این صفحه را باز نگه دار.`,
-    progressCount:(d,t,s)=>`${faNum.format(d)} از ${faNum.format(t)} · موفق ${faNum.format(s)}`,
-    doneCount:(s,t)=>`${faNum.format(s)} اتصال موفق از ${faNum.format(t)} مورد.`,
+    xrayRunning:'Xray در حال آزمایش مسیرهاست.', batchProgress:(n)=>`Xray دسته‌های ${n}تایی را در پس‌زمینه بررسی می‌کند؛ می‌توانی صفحه را ببندی و بعداً از سابقه نتیجه را ببینی.`,
+    progressCount:(d,t,s)=>`${d} از ${t} · موفق ${s}`,
+    doneCount:(s,t)=>`${s} اتصال موفق از ${t} مورد.`,
     historyLabel:'سابقهٔ بررسی', historyTitle:'نتیجه‌های قبلی', refresh:'تازه‌سازی', loadingHistory:'در حال دریافت سابقه…',
-    editHistory:'ویرایش', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', titlePrompt:'نام دلخواه برای این جست‌وجو:', tagsPrompt:'برچسب‌ها را با ویرگول جدا کن:', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
-    historySuccess:(s,t,o)=>`${faNum.format(s)} موفق از ${faNum.format(t)} · شروع ${faNum.format(o+1)}`,
+    editHistory:'ویرایش', editName:'نام جست‌وجو', editTags:'برچسب‌ها', saveMeta:'ذخیره', cancelMeta:'لغو', copySubscription:'کپی لینک ساب', favoriteHistory:'نشان‌کردن به‌عنوان علاقه‌مندی', unfavoriteHistory:'برداشتن از علاقه‌مندی‌ها', historySaved:'جزئیات جست‌وجو ذخیره شد.', noHistory:'هنوز بررسی‌ای ذخیره نشده است.', historyError:'دریافت سابقه انجام نشد', openHistory:'بازکردن نتایج', rescan:'اجرای دوباره', rescanUrlPrompt:'لینک ساب این بررسی در سابقهٔ قدیمی ذخیره نشده. لینک را وارد کن تا دوباره بررسی شود:',
+    historySuccess:(s,t,o,d,finished)=>`${s} موفق · ${d} از ${t} بررسی‌شده · شروع ${number(o+1)}${finished?' · پایان‌یافته':' · ادامه در پس‌زمینه'}`,
     resultsLabel:'خروجی بررسی', resultTitle:'کانفیگ‌های موفق', resultsLoading:'در حال دریافت نتیجه‌ها به بخش‌های کوچک…',
     loading:'در حال بارگذاری…', loadErr:'نتیجه‌ها بارگذاری نشدند', retryHistory:'می‌توانی دوباره از سابقه همین بررسی را باز کنی.',
-    resultsLoaded:(s,t)=>`${faNum.format(s)} نتیجهٔ موفق · ${faNum.format(t)} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
-    resultsChunk:(a,b)=>`دریافت ${faNum.format(a)} از ${faNum.format(b)} نتیجهٔ موفق…`,
+    resultsLoaded:(s,t)=>`${s} نتیجهٔ موفق · ${t} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
+    resultsChunk:(a,b)=>`دریافت ${a} از ${b} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
     noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
-    oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
+    oldService:'بررسی نشده', reachable:'دسترسی دارد', unavailable:'دسترسی ندارد', noReply:'بدون پاسخ', httpStatus:'HTTP', endpointPing:'پینگ مستقیم مقصد', endpointPingTip:'ICMP از سرور بررسی تا IP مقصد؛ ممکن است پاسخ ICMP بسته باشد.', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
-    allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${faNum.format(n)} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${faNum.format(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
+    allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${n} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${number(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
     footerBrand:'بخشی از خانوادهٔ پروژه‌های Connecso', footerByline:'ساخته Taha · @SocalledTaha', footerPromo:'\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0633\u062e\u0647\u200c\u0647\u0627\u06cc Windows \u0648 Android \u06a9\u0644\u0627\u06cc\u0646\u062a VPN \u0645\u0628\u062a\u0646\u06cc \u0628\u0631 V2Ray', footerProject:'\u0645\u0646\u0628\u0639 \u06a9\u062f', footerDownload:'دریافت Connecso', footerDownloadTip:'\u06a9\u0644\u0627\u06cc\u0646\u062a VPN \u0645\u0628\u062a\u0646\u06cc \u0628\u0631 V2Ray \u00b7 Windows 0.2.4 \u00b7 Android 0.2',
     askUrl:'آدرس HTTPS اشتراک را وارد کن.', askText:'متن کانفیگ‌ها را وارد کن.', reading:'در حال خواندن و اعتبارسنجی ورودی…',
     newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر کانفیگ دریافت نشد.',
     serviceHint:'دسترسی فقط با درخواست HTTPS بررسی می‌شود؛ وضعیت ممکن است با محدودیت منطقه‌ای سرویس فرق داشته باشد.',
+    updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
     themeLabel:'تغییر تم', langLabel:'Switch to English', healthError:'ارتباط با سرویس برقرار نشد',
   },
   en: {
@@ -53,31 +54,32 @@ const dictionaries = {
     encryptedOnly:'Encryption', tlsRealityOnly:'TLS, Reality, or protocol encryption', fullConnection:'Full connection', httpsReply:'HTTPS reply through the tunnel', serviceAccess:'Service access',
     privacy:'Service checks measure HTTPS reachability only. They do not sign in to accounts.', running:'AUDIT IN PROGRESS',
     connecting:'Connecting through configurations', interrupted:'Previous audit was interrupted', completed:'Audit complete',
-    xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>`Xray is testing batches of ${n} configs. Keep this page open.`,
+    xrayRunning:'Xray is testing the routes.', batchProgress:(n)=>`Xray is checking batches of ${n} in the background. You can close this page and return to history later.`,
     progressCount:(d,t,s)=>`${d} of ${t} · ${s} working`, doneCount:(s,t)=>`${s} working routes out of ${t}.`,
     historyLabel:'AUDIT HISTORY', historyTitle:'Previous results', refresh:'Refresh', loadingHistory:'Loading history…',
-    editHistory:'Edit', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', titlePrompt:'Custom name for this search:', tagsPrompt:'Separate tags with commas:', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
-    historySuccess:(s,t,o)=>`${s} working of ${t} · starts at ${o+1}`,
+    editHistory:'Edit', editName:'Search name', editTags:'Tags', saveMeta:'Save', cancelMeta:'Cancel', copySubscription:'Copy sub link', favoriteHistory:'Add to favorites', unfavoriteHistory:'Remove from favorites', historySaved:'Search details saved.', noHistory:'No saved audits yet.', historyError:'Could not load history', openHistory:'Open results', rescan:'Run again', rescanUrlPrompt:'This older audit did not save its subscription URL. Enter the URL to run it again:',
+    historySuccess:(s,t,o,d,finished)=>`${s} working · ${d} of ${t} checked · starts at ${number(o+1)}${finished?' · complete':' · running in background'}`,
     resultsLabel:'AUDIT OUTPUT', resultTitle:'Working configurations', resultsLoading:'Loading results in small sections…',
     loading:'Loading…', loadErr:'Could not load results', retryHistory:'You can reopen this audit from history.',
     resultsLoaded:(s,t)=>`${s} working results · ${t} configs checked · loaded in pages`,
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
     noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
-    oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
+    oldService:'Not checked', reachable:'Reachable', unavailable:'Unavailable', noReply:'No response', httpStatus:'HTTP', endpointPing:'Direct endpoint ping', endpointPingTip:'ICMP from the audit server to the endpoint IP; ICMP may be blocked.', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
-    allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${n} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
+    allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${number(n)} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
     footerBrand:'Part of the Connecso Projects family', footerByline:'Made by Taha · @SocalledTaha', footerPromo:'Get the V2Ray-based VPN client for Windows and Android.', footerProject:'Source code', footerDownload:'Get Connecso', footerDownloadTip:'V2Ray-based VPN client · Windows 0.2.4 · Android 0.2',
     askUrl:'Enter an HTTPS subscription URL.', askText:'Paste one or more supported configs.', reading:'Reading and validating input…',
     newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this route.',
     serviceHint:'Checks use HTTPS requests only; regional service restrictions may affect availability.',
+    updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking for a new version…', updateDownloading:'Downloading files…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
     themeLabel:'Toggle theme', langLabel:'تغییر زبان به فارسی', healthError:'Could not connect to the audit service',
   },
 };
 const faNum = new Intl.NumberFormat('fa-IR');
 const state = { currentResults: [], currentJob: '', busy: false, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '' };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
-function number(value) { return state.lang === 'fa' ? faNum.format(value) : new Intl.NumberFormat('en-US').format(value); }
+function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
 function applyLanguage() {
   document.documentElement.lang = state.lang;
@@ -98,7 +100,9 @@ function applyLanguage() {
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem('vless-audit-theme', theme);
-  $('#theme-toggle .theme-symbol').textContent = theme === 'dark' ? '☼' : '☾';
+  $('#theme-toggle .theme-symbol').innerHTML = theme === 'dark'
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 15.2A8.5 8.5 0 0 1 8.8 3.5 8.6 8.6 0 1 0 20.5 15.2Z"/></svg>';
   $('#theme-toggle [data-theme-label]').textContent = t(theme === 'dark' ? 'lightTheme' : 'darkTheme');
   document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#080c10' : '#f3f8fb';
 }
@@ -108,6 +112,29 @@ async function api(path, options = {}) {
   let data; try { data = await response.json(); } catch { throw new Error(state.lang === 'fa' ? 'پاسخ سرور قابل خواندن نبود.' : 'The server response could not be read.'); }
   if (!response.ok) throw new Error(data.error || `${state.lang === 'fa' ? 'خطای سرور' : 'Server error'} (${response.status})`);
   return data;
+}
+const UPDATE_ACTIVE = new Set(['queued','checking','downloading','installing','restarting']);
+const UPDATE_LABELS = { queued:'updateQueued', checking:'updateChecking', downloading:'updateDownloading', installing:'updateInstalling', restarting:'updateRestarting' };
+function showUpdateStatus(status) {
+  const output = $('#update-status');
+  const button = $('#update-button');
+  if (!output || !button) return;
+  const active = UPDATE_ACTIVE.has(status.state);
+  output.hidden = status.state === 'idle';
+  output.classList.toggle('is-error', status.state === 'failed');
+  output.textContent = status.state === 'complete' ? t('updateComplete') : status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : UPDATE_LABELS[status.state] ? t(UPDATE_LABELS[status.state]) : t('updateNoHelper');
+  button.disabled = active;
+}
+async function watchUpdate() {
+  try {
+    const status = await api('/api/update/status');
+    showUpdateStatus(status);
+    if (UPDATE_ACTIVE.has(status.state)) { window.setTimeout(watchUpdate, 1800); return; }
+    if (status.state === 'complete' && status.id && localStorage.getItem('vless-audit-reloaded-update') !== status.id) {
+      localStorage.setItem('vless-audit-reloaded-update', status.id);
+      window.setTimeout(() => window.location.reload(), 900);
+    }
+  } catch { window.setTimeout(watchUpdate, 1800); }
 }
 function setBusy(busy) { state.busy = busy; elements.start.disabled = busy; elements.start.querySelector('span:first-child').textContent = t(busy ? 'busy' : 'start'); }
 function setProgress(job, detail = '') {
@@ -130,7 +157,9 @@ async function loadHistory() {
     elements.history.innerHTML = items.map((job) => {
       const title = job.title?.trim() || job.id;
       const tags = (job.tags || []).map((tag) => `<span class="history-tag">${escapeHtml(tag)}</span>`).join('');
-      return `<article class="history-card"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), number(job.offset || 0)))}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button><button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></article>`;
+      const offset = Number(job.offset) || 0;
+      const done = Number(job.done) || 0;
+      return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), offset, number(done), Boolean(job.finished)))}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}" data-needs-url="${job.needsRescanUrl ? 'true' : 'false'}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
     }).join('');
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
 }
@@ -140,8 +169,8 @@ async function loadResults(jobId, title = t('resultTitle')) {
   elements.results.scrollIntoView({ behavior:'smooth', block:'start' });
   const all = []; let info = null;
   try {
-    for (let offset = 0; ; offset += 12) {
-      const chunk = await api(`/api/jobs/${encodeURIComponent(jobId)}?offset=${offset}&limit=12`); info = chunk; all.push(...chunk.results);
+    for (let offset = 0; ; offset += 100) {
+      const chunk = await api(`/api/jobs/${encodeURIComponent(jobId)}?offset=${offset}&limit=100`); info = chunk; all.push(...chunk.results);
       elements.resultsSummary.textContent = t('resultsChunk', number(all.length), number(chunk.success));
       if (all.length >= chunk.success || chunk.results.length === 0) break;
     }
@@ -238,6 +267,7 @@ function servicesMarkup(item) {
 function resultCard(item, index) {
   const name = item.name || item.endpoint || t('noName');
   const ping = item.pingCheck || { ok:item.ok, ms:item.ms, httpStatus:item.httpStatus, timings:item.timings };
+  const endpointPingMs = ping.endpointPingMs ?? item.endpointPingMs;
   const timing = ping.timings;
   const tooltip = timing ? `HTTP ${ping.httpStatus || 0} · ${t('proxyConnect')} ${timing.proxyConnectMs ?? 0} ms · ${t('tlsViaOutbound')} ${timing.tlsViaOutboundMs ?? 0} ms · ${t('firstByte')} ${timing.firstByteMs ?? ping.ms ?? 0} ms` : t('timingNotSaved');
   const pingValue = ping.ok && ping.ms != null ? `${number(ping.ms)} ms` : t('pingFailed');
@@ -250,7 +280,7 @@ function resultCard(item, index) {
   const issues = outboundIssues(item); const duplicate = duplicateUris().has(item.uri);
   const protocolLabel = ({hysteria2:'Hysteria2',shadowsocks:'Shadowsocks',vless:'VLESS',vmess:'VMess',trojan:'Trojan',wireguard:'WireGuard',masque:'MASQUE'})[item.protocol] || String(item.protocol || 'Unknown').toUpperCase();
   const details = [protocolLabel, item.transport || '—', item.security || ''].filter(Boolean).join(' · ');
-  return `<article class="result-item${state.lastPingUri === item.uri ? ' ping-updated' : ''}" data-result-index="${index}"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat result-ping ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat result-exit">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
+  return `<article class="result-item${state.lastPingUri === item.uri ? ' ping-updated' : ''}" data-result-index="${index}"><label class="select-config"><input type="checkbox" data-select-index="${index}" ${state.selectedUris.has(item.uri) ? 'checked' : ''}><span class="sr-only">${escapeHtml(t('selectConfig'))}</span></label><div class="result-primary"><div class="result-primary-head"><strong>${escapeHtml(name)}</strong><span class="result-flags">${duplicate ? `<span class="duplicate-tag">${escapeHtml(t('duplicate'))}</span>` : ''}${issues.length ? `<span class="compatibility-tag bad" title="${escapeHtml(issues.join(' · '))}">${escapeHtml(t('incompatible'))}</span>` : `<span class="compatibility-tag">${escapeHtml(t('outboundReady'))}</span>`}</span><span class="speed-test-wrap"><button class="copy-button speed-test-button" type="button" data-speed-index="${index}" title="${escapeHtml(item.speedCheck?.ok ? t('speedResult', item.speedCheck.megabytesPerSecond, item.speedCheck.seconds) : t('speedTest'))}">↓ ${escapeHtml(t('speedTest'))}</button>${speed}</span></div><code>${escapeHtml(item.endpoint)} · ${escapeHtml(item.ip)} · ${escapeHtml(item.country || t('countryUnknown'))}</code></div><div class="result-stat result-ping ${ping.ok ? '' : 'ping-failed'}" tabindex="0" title="${escapeHtml(tooltip)}">${pingValue}<small>${escapeHtml(t('rttLabel'))}</small></div><div class="result-stat result-endpoint-ping" title="${escapeHtml(t('endpointPingTip'))}">${endpointPingMs == null ? '—' : `${number(endpointPingMs)} ms`}<small>${escapeHtml(t('endpointPing'))}</small></div><div class="result-stat result-exit">${escapeHtml(item.exit || '—')}<small>${escapeHtml(t('exitIp'))}</small></div><span class="security-tag" title="${escapeHtml(t('protocol'))} · ${escapeHtml(t('transport'))}">${escapeHtml(details)}</span><div class="connection-actions"><button class="copy-button item-copy" type="button" data-copy-index="${index}">${escapeHtml(t('configCopy'))}</button><button class="copy-button ping-again-button" type="button" data-ping-index="${index}">${escapeHtml(t('pingAgain'))}</button></div>${servicesMarkup(item)}</article>`;
 }
 function countryOutbounds(country) {
   return uniqueOutbounds(state.currentResults.filter((item) => (item.country || t('countryUnknown')) === country));
@@ -388,24 +418,32 @@ document.querySelectorAll('.view-tab').forEach((tab)=>tab.addEventListener('clic
 elements.history.addEventListener('click', async (event) => {
   const favoriteButton = event.target.closest('[data-favorite-job]');
   const editButton = event.target.closest('[data-edit-meta]');
-  const jobId = favoriteButton?.dataset.favoriteJob || editButton?.dataset.editMeta;
+  const cancelButton = event.target.closest('[data-cancel-meta]');
+  if (editButton) {
+    const form = elements.history.querySelector(`[data-history-form="${CSS.escape(editButton.dataset.editMeta)}"]`);
+    elements.history.querySelectorAll('.history-edit').forEach((item) => { if (item !== form) item.hidden = true; });
+    if (form) { form.hidden = false; form.querySelector('[name="title"]').focus(); }
+    return;
+  }
+  if (cancelButton) {
+    const form = elements.history.querySelector(`[data-history-form="${CSS.escape(cancelButton.dataset.cancelMeta)}"]`);
+    if (form) form.hidden = true;
+    return;
+  }
+  const copySubButton = event.target.closest('[data-copy-subscription]');
+  if (copySubButton) {
+    try {
+      const data = await api(`/api/jobs/${encodeURIComponent(copySubButton.dataset.copySubscription)}?subscription-url=1`);
+      if (data.subscriptionUrl) await copyText(data.subscriptionUrl, copySubButton);
+    } catch (error) { showError(error.message); }
+    return;
+  }
+  const jobId = favoriteButton?.dataset.favoriteJob;
   if (jobId) {
     try {
       const current = (await api('/api/history')).find((item) => item.id === jobId);
       if (!current) return;
-      let title = current.title || '';
-      let tags = (current.tags || []).join(', ');
-      let favorite = Boolean(current.favorite);
-      if (favoriteButton) favorite = !favorite;
-      else {
-        const nextTitle = window.prompt(t('titlePrompt'), title);
-        if (nextTitle === null) return;
-        title = nextTitle;
-        const nextTags = window.prompt(t('tagsPrompt'), tags);
-        if (nextTags === null) return;
-        tags = nextTags;
-      }
-      await api(`/api/jobs/${encodeURIComponent(jobId)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title, tags:tags.split(',').map((tag)=>tag.trim()).filter(Boolean), favorite }) });
+      await api(`/api/jobs/${encodeURIComponent(jobId)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:current.title || '', tags:current.tags || [], favorite:!current.favorite }) });
       await loadHistory();
     } catch (error) { showError(error.message); }
     return;
@@ -428,6 +466,19 @@ elements.history.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-open-job]');
   if (button) loadResults(button.dataset.openJob,t('savedResults'));
 });
+elements.history.addEventListener('submit', async (event) => {
+  const form = event.target.closest('[data-history-form]');
+  if (!form) return;
+  event.preventDefault();
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    const data = new FormData(form);
+    const tags = String(data.get('tags') || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+    await api(`/api/jobs/${encodeURIComponent(form.dataset.historyForm)}/meta`, { method:'PATCH', headers:{'content-type':'application/json'}, body:JSON.stringify({ title:String(data.get('title') || ''), tags, favorite:form.dataset.favorite === 'true' }) });
+    await loadHistory();
+  } catch (error) { showError(error.message); submit.disabled = false; }
+});
 elements.countries.addEventListener('click',(event)=>{
   const pingAllButton=event.target.closest('[data-ping-all-country]');if(pingAllButton){rerunCountryPings(pingAllButton.dataset.pingAllCountry,pingAllButton);return;}
   const pingButton=event.target.closest('[data-ping-index]');if(pingButton){rerunPing(Number(pingButton.dataset.pingIndex),pingButton);return;}
@@ -447,6 +498,13 @@ $('#result-security').addEventListener('change',renderResults);$('#result-servic
 $('#country-filters').addEventListener('click',(event)=>{const button=event.target.closest('[data-country-filter]');if(!button)return;state.selectedCountry=button.dataset.countryFilter;renderResults();});
 $('#language-toggle').addEventListener('click',()=>{state.lang=state.lang==='fa'?'en':'fa';localStorage.setItem('vless-audit-lang',state.lang);applyLanguage();});
 $('#theme-toggle').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
+$('#update-button').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  if (button.disabled || !window.confirm(t('updateConfirm'))) return;
+  button.disabled = true;
+  try { await api('/api/update', { method:'POST' }); await watchUpdate(); }
+  catch (error) { showUpdateStatus({ state:'failed', error:error.message }); button.disabled = false; }
+});
 $('#logout-button').addEventListener('click',async()=>{try{await fetch('/api/logout',{method:'POST',cache:'no-store'});}finally{window.location.assign('/login');}});
-setTheme(localStorage.getItem('vless-audit-theme')||'dark');applyLanguage();
+setTheme(localStorage.getItem('vless-audit-theme')||'dark');applyLanguage();watchUpdate();
 api('/api/health').catch((error)=>{elements.progress.hidden=false;elements.progressMessage.textContent=`${t('healthError')}: ${error.message}`;});

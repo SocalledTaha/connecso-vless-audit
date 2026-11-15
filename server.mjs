@@ -1,5 +1,5 @@
 import https from 'node:https';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
@@ -11,14 +11,17 @@ import { loadJobs, saveJob } from './src/store.mjs';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
 const RESULTS = process.env.RESULTS_DIR || '/opt/vless-audit/results';
+const UPDATE_REQUEST = path.join(RESULTS, 'update-request.json');
+const UPDATE_STATUS = path.join(RESULTS, 'update-status.json');
 const CERT = process.env.CERT_FILE || '/etc/vless-audit/server.crt';
 const KEY = process.env.KEY_FILE || '/etc/vless-audit/server.key';
 const PORT = Number(process.env.PORT || 3006);
 const HOST = process.env.HOST || '0.0.0.0';
 const PASSWORD = process.env.PANEL_PASSWORD || '';
-const MAX_BODY = 2_500_000;
-const CHUNK_SIZE = 12;
+const MAX_BODY = 12_000_000;
+const CHUNK_SIZE = 100;
 const MAX_CONCURRENT_CHECKS = 20;
+const MAX_CONFIGS_PER_AUDIT = 2500;
 const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
 function filterProtocols(configs, ids) {
   if (!Array.isArray(ids)) return configs;
@@ -172,6 +175,7 @@ function summary(job) {
     finished: Boolean(job.finished),
     interrupted: Boolean(job.interrupted),
     canRescan: true,
+    hasSubscriptionUrl: Boolean(job.subscriptionUrl),
     needsRescanUrl: Boolean(!job.subscriptionUrl && !job.results.some((item) => item.uri)),
     message: job.message || '',
   };
@@ -179,7 +183,7 @@ function summary(job) {
 
 async function beginJob(configs, offset, batchSize, subscriptionUrl = '', message = '', scanOptions = {}) {
   batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number.parseInt(batchSize, 10) || MAX_CONCURRENT_CHECKS));
-  const selected = configs.slice(offset, offset + 250);
+  const selected = configs.slice(offset, offset + MAX_CONFIGS_PER_AUDIT);
   const id = crypto.randomBytes(9).toString('base64url');
   const job = {
     id,
@@ -301,6 +305,25 @@ async function route(request, response) {
     if (sessionId) sessions.delete(sessionId);
     return redirect(response, '/login', { 'Set-Cookie': 'vless_audit_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict' });
   }
+  if (request.method === 'GET' && url.pathname === '/api/update/status') {
+    try { return sendJson(response, 200, JSON.parse(await readFile(UPDATE_STATUS, 'utf8'))); }
+    catch (error) { if (error.code === 'ENOENT') return sendJson(response, 200, { state: 'idle' }); throw error; }
+  }
+  if (request.method === 'POST' && url.pathname === '/api/update') {
+    try { await readFile('/etc/systemd/system/vless-audit-self-update.path'); }
+    catch { return fail(response, 503, 'به‌روزرسانی داخل پنل هنوز در نصب این نسخه فعال نشده است.'); }
+    if (activeJob) return fail(response, 409, 'ابتدا بررسی جاری را تمام کن.');
+    let status = {};
+    try { status = JSON.parse(await readFile(UPDATE_STATUS, 'utf8')); } catch {}
+    if (['queued','checking','downloading','installing','restarting'].includes(status.state)) return fail(response, 409, 'به‌روزرسانی دیگری در حال اجراست.');
+    const id = crypto.randomBytes(10).toString('hex');
+    const temporary = UPDATE_REQUEST + '.' + id + '.tmp';
+    await writeFile(temporary, JSON.stringify({ id, requestedAt: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
+    await writeFile(UPDATE_STATUS, JSON.stringify({ id, state:'queued', updatedAt:new Date().toISOString() }), { mode:0o600 });
+    try { await rename(temporary, UPDATE_REQUEST); }
+    catch (error) { await unlink(temporary).catch(() => {}); await writeFile(UPDATE_STATUS, JSON.stringify({ id, state:'failed', error:'درخواست به‌روزرسانی ثبت نشد.', updatedAt:new Date().toISOString() }), { mode:0o600 }); throw error; }
+    return sendJson(response, 202, { id, state:'queued' });
+  }
   if (request.method === 'GET' && url.pathname === '/') {
     const body = await readFile(path.join(PUBLIC, 'index.html'));
     headers(response, 'text/html; charset=utf-8');
@@ -385,7 +408,7 @@ async function route(request, response) {
     try { input = JSON.parse(await readBody(request)); }
     catch (error) { return fail(response, error.status || 400, error.message || 'Invalid request.'); }
     const uris = [...new Set(Array.isArray(input.uris) ? input.uris.map((uri) => String(uri)) : [])];
-    if (!uris.length || uris.length > 250) return fail(response, 400, 'Provide between 1 and 250 routes.');
+    if (!uris.length || uris.length > MAX_CONFIGS_PER_AUDIT) return fail(response, 400, `Provide between 1 and ${MAX_CONFIGS_PER_AUDIT} routes.`);
     const selected = [];
     for (const uri of uris) {
       const item = job.results.find((result) => result.ok && result.uri === uri);
@@ -402,7 +425,8 @@ async function route(request, response) {
         const checks = await testBatch(chunk.map(({config}) => config), countries, { checkExit: false, checkServices: false, concurrency: 4 });
         checks.forEach((check, index) => {
           const { uri, item } = chunk[index];
-          item.pingCheck = { ok: check.ok, ms: check.ms ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
+          item.endpointPingMs = check.endpointPingMs ?? null;
+          item.pingCheck = { ok: check.ok, ms: check.ms ?? null, endpointPingMs: check.endpointPingMs ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
           updates.push({ uri, pingCheck: item.pingCheck });
         });
         await saveJob(RESULTS, job);
@@ -433,7 +457,8 @@ async function route(request, response) {
     try {
       if (routeAction[2] === 'ping') {
         const check = await testOne(config, countryMap, { checkExit: false, checkServices: false });
-        item.pingCheck = { ok: check.ok, ms: check.ms ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
+        item.endpointPingMs = check.endpointPingMs ?? null;
+        item.pingCheck = { ok: check.ok, ms: check.ms ?? null, endpointPingMs: check.endpointPingMs ?? null, httpStatus: check.httpStatus || 0, timings: check.timings || null, error: check.error || '', checked: new Date().toISOString() };
         await saveJob(RESULTS, job);
         return sendJson(response, 200, item.pingCheck);
       }
@@ -450,6 +475,7 @@ async function route(request, response) {
   if (request.method === 'GET' && jobMatch) {
     const job = jobs.get(jobMatch[1]);
     if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    if (url.searchParams.get('subscription-url') === '1') return sendJson(response, 200, { subscriptionUrl: job.subscriptionUrl || '' });
     if (url.searchParams.get('summary') === '1') return sendJson(response, 200, summary(job));
     const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') || '0', 10) || 0);
     const limit = Math.min(CHUNK_SIZE, Math.max(1, Number.parseInt(url.searchParams.get('limit') || String(CHUNK_SIZE), 10) || CHUNK_SIZE));

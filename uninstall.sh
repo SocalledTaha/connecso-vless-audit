@@ -13,7 +13,11 @@ elif [[ $# -gt 0 ]]; then echo 'Usage: uninstall.sh [--purge-data]' >&2; exit 2
 fi
 
 systemctl disable --now "$APP_NAME.service" 2>/dev/null || true
-rm -f "/etc/systemd/system/$APP_NAME.service"
+systemctl disable --now vless-audit-self-update.path 2>/dev/null || true
+systemctl stop vless-audit-self-update.service 2>/dev/null || true
+rm -f "/etc/systemd/system/$APP_NAME.service" \
+  /etc/systemd/system/vless-audit-self-update.path \
+  /etc/systemd/system/vless-audit-self-update.service
 systemctl daemon-reload
 rm -rf -- "$APP_DIR" "$CONFIG_DIR"
 rm -f /usr/local/bin/ConnecsoTools /usr/local/bin/connecsotools /usr/local/bin/CONNECSOTOOLS

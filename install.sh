@@ -98,7 +98,7 @@ fi
 if (( STAGE < 2 )); then
   printf '\n[1/5] Installing required system packages…\n'
   apt-get update
-  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git
+  DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git iputils-ping
   CERTBOT="$(command -v certbot)"
   STAGE=2; save_state
 fi
@@ -268,6 +268,37 @@ WantedBy=multi-user.target
 EOF
 chmod 0644 "$SERVICE_FILE"
 
+# Authenticated in-panel updates are handed to a small root-owned updater.
+# The web service only creates a request file; the updater validates the
+# configured GitHub remote before replacing panel files and restarting it.
+install -o root -g root -m 0755 "$SOURCE_DIR/self-update.sh" /usr/local/lib/connecso-tools/self-update.sh
+cat > /etc/systemd/system/vless-audit-self-update.service <<EOF
+[Unit]
+Description=Connecso panel self-update worker
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=root
+Group=root
+TimeoutStartSec=10min
+ExecStart=/usr/local/lib/connecso-tools/self-update.sh
+ProtectSystem=strict
+ProtectHome=false
+PrivateTmp=true
+ReadWritePaths="$APP_DIR" "$DATA_DIR" "$PROJECT_DIR"
+EOF
+cat > /etc/systemd/system/vless-audit-self-update.path <<EOF
+[Unit]
+Description=Watch for authenticated Connecso panel update requests
+[Path]
+PathExists="$DATA_DIR/results/update-request.json"
+Unit=vless-audit-self-update.service
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 0644 /etc/systemd/system/vless-audit-self-update.{service,path}
+
 # Certbot renewal hooks briefly free TCP/80 and then refresh the panel's copy.
 install -d -m 0755 /etc/letsencrypt/renewal-hooks/pre /etc/letsencrypt/renewal-hooks/post /etc/letsencrypt/renewal-hooks/deploy
 cat > /etc/letsencrypt/renewal-hooks/pre/20-vless-audit <<'EOF'
@@ -300,6 +331,7 @@ EOF
 chmod 0755 /etc/letsencrypt/renewal-hooks/{pre,post,deploy}/20-vless-audit
 
 systemctl daemon-reload
+systemctl enable --now vless-audit-self-update.path
 systemctl enable --now "$APP_NAME.service"
 systemctl restart "$APP_NAME.service"
 STAGE=6; save_state

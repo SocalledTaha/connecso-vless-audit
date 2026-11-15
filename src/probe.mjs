@@ -28,6 +28,20 @@ export async function publicAddresses(host) {
   return addresses.length && addresses.every(isPublicAddress) ? addresses : [];
 }
 
+async function directEndpointPing(address) {
+  if (!address || !isPublicAddress(address)) return null;
+  try {
+    const { stdout } = await execFileAsync('ping', ['-n', '-c', '1', '-W', '1', address], { timeout: 1800, maxBuffer: 16_384 });
+    const match = String(stdout).match(/time\s*([=<])\s*([\d.]+)\s*ms/i);
+    if (!match) return null;
+    const value = Number(match[2]);
+    if (!Number.isFinite(value)) return null;
+    return match[1] === '<' ? Math.min(value, 0.5) : value;
+  } catch {
+    return null;
+  }
+}
+
 export async function geoMap(addresses) {
   const countries = {};
   const unique = [...new Set(addresses)];
@@ -187,6 +201,7 @@ export async function testOne(config, countries, options = {}) {
     return base;
   }
   base.ip = addresses.slice().sort()[0];
+  base.endpointPingMs = await directEndpointPing(base.ip);
   const location = countries[base.ip];
   base.country = typeof location === 'string' ? location : location?.country || '';
   base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';
@@ -220,6 +235,7 @@ export async function testBatch(configs, countries, options = {}) {
         return;
       }
       base.ip = addresses.slice().sort()[0];
+      base.endpointPingMs = await directEndpointPing(base.ip);
       const location = countries[base.ip];
       base.country = typeof location === 'string' ? location : location?.country || '';
       base.countryCode = typeof location === 'object' ? location?.countryCode || '' : '';
@@ -240,6 +256,7 @@ export async function testBatch(configs, countries, options = {}) {
     const configPath = path.join(directory, 'config.json');
     await writeFile(configPath, JSON.stringify(buildXrayBatchConfig(entries.map((item) => item.config), ports)));
     child = spawn(XRAY, ['run', '-c', configPath], { stdio: 'ignore' });
+    child.setMaxListeners(Math.max(10, ports.length + 2));
     await Promise.all(ports.map((port) => waitForSocks(child, port)));
     const checked = new Array(entries.length);
     const concurrency = Math.min(entries.length, Math.max(1, Number(options.concurrency) || entries.length));
