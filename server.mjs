@@ -21,6 +21,7 @@ const PASSWORD = process.env.PANEL_PASSWORD || '';
 const MAX_BODY = 12_000_000;
 const CHUNK_SIZE = 100;
 const MAX_CONCURRENT_CHECKS = 20;
+const MAX_ROUTES_PER_XRAY = 10;
 const MAX_CONFIGS_PER_AUDIT = 2500;
 const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
 function filterProtocols(configs, ids) {
@@ -213,23 +214,45 @@ async function beginJob(configs, offset, batchSize, subscriptionUrl = '', messag
   jobs.set(id, job);
   await saveJob(RESULTS, job);
   if (selected.length) {
-    activeJob = id;
-    runJob(job, selected);
+    launchAudit(job, selected);
   }
   return summary(job);
 }
 
-async function runJob(job, configs) {
+function launchAudit(job, configs) {
+  let finish;
+  const operation = {
+    kind: 'audit', jobId: job.id, controller: new AbortController(), replaceRequested: false,
+    done: new Promise((resolve) => { finish = resolve; }),
+  };
+  operation.finish = finish;
+  activeJob = job.id;
+  activeOperation = operation;
+  runJob(job, configs, operation).catch((error) => {
+    console.error('audit worker failed unexpectedly:', job.id, error.message);
+  }).finally(() => {
+    if (activeOperation === operation) {
+      activeOperation = null;
+      activeJob = null;
+    }
+    operation.finish();
+  });
+}
+
+async function runJob(job, configs, operation = null) {
+  const signal = operation?.controller.signal;
   job.error = '';
   job.interrupted = false;
   try {
     const addresses = [];
     for (const config of configs) {
+      if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
       try {
         addresses.push(...await publicAddresses(config.host));
       } catch {}
     }
     const countries = await geoMap(addresses);
+    if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
     const batchSize = Math.min(MAX_CONCURRENT_CHECKS, Math.max(1, Number(job.batchSize) || MAX_CONCURRENT_CHECKS));
     const checked = new Set(Array.isArray(job.checkedIndexes)
       ? job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < configs.length)
@@ -244,6 +267,7 @@ async function runJob(job, configs) {
     let saveQueue = Promise.resolve();
     const persistBatch = (batchResults, indexes) => {
       saveQueue = saveQueue.then(async () => {
+        if (signal?.aborted) return;
         job.results.push(...batchResults);
         indexes.forEach((index) => checked.add(index));
         job.checkedIndexes = [...checked].sort((a, b) => a - b);
@@ -257,8 +281,9 @@ async function runJob(job, configs) {
     const failures = await Promise.all(partitions.map(async (partition) => {
       try {
         for (let start = 0; start < partition.length; start += batchSize) {
+          if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
           const batch = partition.slice(start, start + batchSize);
-          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: 5, throwBatchErrors: true });
+          const results = await testBatch(batch.map((item) => item.config), countries, { checkExit: job.checkExit, serviceIds: job.serviceIds, concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true });
           await persistBatch(results, batch.map((item) => item.index));
         }
         return null;
@@ -267,9 +292,24 @@ async function runJob(job, configs) {
       }
     }));
     await saveQueue;
+    if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
     const failure = failures.find(Boolean);
     if (failure) throw failure;
   } catch (error) {
+    if (signal?.aborted) {
+      job.error = '';
+      job.finished = true;
+      job.interrupted = true;
+      job.resumeEligible = false;
+      job.cancelled = true;
+      await saveJob(RESULTS, job);
+      if (activeOperation === operation) {
+        activeOperation = null;
+        activeJob = null;
+      }
+      if (!operation?.replaceRequested) resumePendingJobs().catch((resumeError) => console.error('audit resume failed:', resumeError.message));
+      return;
+    }
     job.error = error.message || 'بررسی با خطا روبه‌رو شد.';
     console.error('audit job failed:', job.id, job.error);
     if (job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
@@ -277,15 +317,18 @@ async function runJob(job, configs) {
       job.finished = false;
       job.interrupted = false;
       await saveJob(RESULTS, job).catch((saveError) => console.error('could not save interrupted audit:', saveError.message));
-      setTimeout(() => runJob(job, configs), 1200);
-      return;
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      return runJob(job, configs, operation);
     }
   }
   job.finished = true;
   job.interrupted = Boolean(job.error && job.done < job.total);
   job.resumeEligible = job.done < job.total && Boolean(job.scanConfigs?.length)
     && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES;
-  activeJob = null;
+  if (activeOperation === operation) {
+    activeOperation = null;
+    activeJob = null;
+  }
   await saveJob(RESULTS, job);
   if (job.done >= job.total) {
     job.scanConfigs = null;
@@ -350,7 +393,7 @@ async function resumePendingJobs() {
     }
     job.interrupted = false;
     console.log(`Resuming audit ${job.id} from ${job.done}/${job.total}`);
-    runJob(job, configs);
+    launchAudit(job, configs);
     return;
   }
 }
@@ -615,13 +658,12 @@ async function route(request, response) {
     } catch (error) {
       return fail(response, error.status || 400, error.status ? error.message : 'متن درخواست JSON معتبر نیست.');
     }
-    if (activeJob) {
-      if (activeOperation?.kind === 'ping-all' && input.replacePingAll !== true) {
-        return fail(response, 409, 'در حال حاضر پینگ گروهی در حال اجراست.', 'PING_ALL_ACTIVE');
-      }
-      if (activeOperation?.kind !== 'ping-all') {
-        return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
-      }
+    if (activeJob && ['audit', 'ping-all'].includes(activeOperation?.kind)
+      && input.replaceCheck !== true && input.replacePingAll !== true) {
+      return fail(response, 409, 'یک بررسی هنوز در حال اجراست.', 'CHECK_ACTIVE');
+    }
+    if (activeJob && !['audit', 'ping-all'].includes(activeOperation?.kind)) {
+      return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
     }
     let text = String(input.text || '');
     if (input.subscriptionUrl) {
@@ -643,10 +685,13 @@ async function route(request, response) {
     const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
     const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id) => ['gemini', 'youtube', 'instagram', 'telegram'].includes(id)) : ['gemini', 'youtube', 'instagram', 'telegram'];
     if (activeJob) {
-      if (activeOperation?.kind === 'ping-all' && input.replacePingAll === true) {
+      if (['audit', 'ping-all'].includes(activeOperation?.kind) && (input.replaceCheck === true || input.replacePingAll === true)) {
         const previousOperation = activeOperation;
-        previousOperation.controller.abort(new Error('پینگ گروهی با درخواست جدید جایگزین شد.'));
+        previousOperation.replaceRequested = true;
+        previousOperation.controller.abort(new Error('بررسی قبلی با فهرست جدید جایگزین شد.'));
         await previousOperation.done;
+      } else if (['audit', 'ping-all'].includes(activeOperation?.kind)) {
+        return fail(response, 409, 'یک بررسی هنوز در حال اجراست.', 'CHECK_ACTIVE');
       } else {
         return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
       }
