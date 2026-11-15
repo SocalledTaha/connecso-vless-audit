@@ -292,7 +292,7 @@ cat > /etc/systemd/system/vless-audit-self-update.path <<EOF
 [Unit]
 Description=Watch for authenticated Connecso panel update requests
 [Path]
-PathExists="$DATA_DIR/results/update-request.json"
+PathExists=$DATA_DIR/results/update-request.json
 Unit=vless-audit-self-update.service
 [Install]
 WantedBy=multi-user.target
@@ -331,9 +331,16 @@ EOF
 chmod 0755 /etc/letsencrypt/renewal-hooks/{pre,post,deploy}/20-vless-audit
 
 systemctl daemon-reload
-systemctl enable --now vless-audit-self-update.path
 systemctl enable --now "$APP_NAME.service"
 systemctl restart "$APP_NAME.service"
+if ! systemctl enable --now vless-audit-self-update.path; then
+  printf '\nWarning: the panel is running, but automatic in-panel updates could not be enabled.\n' >&2
+  if command -v systemd-analyze >/dev/null 2>&1; then
+    systemd-analyze verify /etc/systemd/system/vless-audit-self-update.path /etc/systemd/system/vless-audit-self-update.service 2>&1 || true
+  fi
+  systemctl status --no-pager --full vless-audit-self-update.path 2>&1 || true
+  journalctl -u vless-audit-self-update.path -n 12 --no-pager 2>&1 || true
+fi
 STAGE=6; save_state
 printf '\n%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
 printf '%s│%s  %s✓  INSTALLATION COMPLETE%s                                  %s│%s\n' "$C_CYAN" "$C_RESET" "$C_GREEN" "$C_RESET" "$C_CYAN" "$C_RESET"
