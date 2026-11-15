@@ -24,7 +24,8 @@ export async function loadJobs(directory) {
           if (config) result.outbound = toPanelOutbound(config, result.name || config.name);
         }
       }
-      if (Number(job.done) < Number(job.total) && Array.isArray(job.scanConfigs) && job.scanConfigs.length) {
+      const hasRecoverableScan = (Array.isArray(job.scanConfigs) && job.scanConfigs.length) || Boolean(job.subscriptionUrl);
+      if (Number(job.done) < Number(job.total) && hasRecoverableScan) {
         job.finished = false;
         job.interrupted = true;
       } else if (!job.finished) job.interrupted = true;
