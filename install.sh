@@ -38,7 +38,11 @@ show_banner() {
 }
 cleanup_temp_dirs() {
   local directory
-  for directory in "${TEMP_DIRS[@]:-}"; do [[ -n "$directory" ]] && rm -rf -- "$directory"; done
+  for directory in "${TEMP_DIRS[@]:-}"; do
+    [[ -n "$directory" ]] || continue
+    rm -rf -- "$directory" || true
+  done
+  return 0
 }
 run_apt_step() {
   local label="$1" log
