@@ -543,6 +543,7 @@ if (( HEALTHY == 0 )); then
 fi
 success 'Panel service and local HTTPS health check passed.'
 STAGE=6; save_state
+if [[ "${VLESS_AUDIT_APPLY_UPDATE:-0}" != 1 ]]; then
 printf '\n%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
 printf '%s│%s  %s✓  INSTALLATION COMPLETE%s                                  %s│%s\n' "$C_CYAN" "$C_RESET" "$C_GREEN" "$C_RESET" "$C_CYAN" "$C_RESET"
 printf '%s╰──────────────────────────────────────────────────────────────╯%s\n' "$C_CYAN" "$C_RESET"
@@ -553,3 +554,7 @@ printf '\n  %sSave these login details before closing this terminal.%s\n' "$C_DI
 printf '  %sOpen maintenance later with ConnecsoTools or CTS.%s\n' "$C_DIM" "$C_RESET"
 printf '  %sThe installer resumes safely if rerun; audit history and credentials are preserved.%s\n' "$C_DIM" "$C_RESET"
 printf '  %sUninstall: sudo bash %s/uninstall.sh%s\n' "$C_DIM" "$PROJECT_DIR" "$C_RESET"
+else
+  printf '\n%s✓ Panel update completed successfully.%s\n' "$C_GREEN" "$C_RESET"
+  printf '  Panel URL: https://%s:%s/\n' "$DOMAIN" "$PORT"
+fi

@@ -261,6 +261,21 @@ update_panel() {
   VLESS_AUDIT_APPLY_UPDATE=1 bash "$PROJECT_DIR/install.sh"
 }
 
+show_panel_info() {
+  local saved_password="${PANEL_PASSWORD:-}"
+  if [[ -z "$saved_password" && -r "$ENV_FILE" ]]; then
+    saved_password="$(sed -n 's/^PANEL_PASSWORD=//p' "$ENV_FILE" | tail -n 1)"
+  fi
+  if [[ -z "$saved_password" ]]; then
+    fail 'Saved admin password is not available. Use Change admin password to set a new one.'
+    return 1
+  fi
+  printf '\n%sPanel information%s\n' "$C_BOLD" "$C_RESET"
+  printf '  Panel URL       https://%s:%s/\n' "$DOMAIN" "$PORT"
+  printf '  Login user      admin\n'
+  printf '  Admin password  %s\n\n' "$saved_password"
+}
+
 show_menu() {
   clear 2>/dev/null || true
   printf '%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
@@ -275,6 +290,7 @@ show_menu() {
   printf '  %s6%s  Update panel\n' "$C_GREEN" "$C_RESET"
   printf '  %s7%s  Restart panel\n' "$C_GREEN" "$C_RESET"
   printf '  %s8%s  Change admin password\n' "$C_GREEN" "$C_RESET"
+  printf '  %s9%s  Show panel login details\n' "$C_GREEN" "$C_RESET"
   printf '  %s0%s  Exit\n\n' "$C_GREEN" "$C_RESET"
 }
 
@@ -290,6 +306,7 @@ while true; do
     6) update_panel || warn 'Update was not completed.'; read -r -p 'Press Enter to continue…' _ ;;
     7) restart_service || true; read -r -p 'Press Enter to continue…' _ ;;
     8) change_password || warn 'Password was not changed.'; read -r -p 'Press Enter to continue…' _ ;;
+    9) show_panel_info || true; read -r -p 'Press Enter to continue…' _ ;;
     0) say 'Goodbye.'; exit 0 ;;
     *) warn 'Choose one of the listed options.'; sleep 1 ;;
   esac
