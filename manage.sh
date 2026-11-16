@@ -5,7 +5,7 @@ APP_NAME="vless-audit"
 APP_DIR="/opt/vless-audit"
 CONFIG_DIR="/etc/vless-audit"
 DATA_DIR="/var/lib/vless-audit"
-STATE_FILE="$DATA_DIR/install-state.env"
+STATE_FILE="$CONFIG_DIR/install-state.env"
 ENV_FILE="$CONFIG_DIR/panel.env"
 SERVICE_FILE="/etc/systemd/system/$APP_NAME.service"
 HOOK_DIR="/etc/letsencrypt/renewal-hooks"
@@ -39,7 +39,7 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 PROJECT_DIR="${PROJECT_DIR:-}"
 
 save_state() {
-  install -d -m 0700 "$DATA_DIR"
+  mkdir -p "$CONFIG_DIR"
   {
     printf 'STAGE=%q\n' "${STAGE:-6}"
     printf 'DOMAIN=%q\n' "$DOMAIN"
@@ -129,7 +129,11 @@ request_certificate() {
     return 1
   fi
   restore_web_services
-  [[ -s "/etc/letsencrypt/live/$candidate/fullchain.pem" && -s "/etc/letsencrypt/live/$candidate/privkey.pem" ]] || { fail 'Certificate files were not created.'; return 1; }
+  local live="/etc/letsencrypt/live/$candidate"
+  [[ -s "$live/fullchain.pem" && -s "$live/privkey.pem" ]] \
+    && openssl x509 -in "$live/fullchain.pem" -noout -checkhost "$candidate" >/dev/null 2>&1 \
+    && openssl x509 -in "$live/fullchain.pem" -noout -checkend 2592000 >/dev/null 2>&1 \
+    || { fail "A valid TLS certificate for $candidate was not issued; the configured domain was left unchanged."; return 1; }
 }
 
 sync_certificate() {

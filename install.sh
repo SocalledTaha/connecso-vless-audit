@@ -5,11 +5,13 @@ APP_NAME="vless-audit"
 APP_DIR="/opt/vless-audit"
 CONFIG_DIR="/etc/vless-audit"
 DATA_DIR="/var/lib/vless-audit"
-STATE_FILE="$DATA_DIR/install-state.env"
+STATE_FILE="$CONFIG_DIR/install-state.env"
+LEGACY_STATE_FILE="$DATA_DIR/install-state.env"
 SERVICE_FILE="/etc/systemd/system/vless-audit.service"
 ENV_FILE="$CONFIG_DIR/panel.env"
 CERTBOT="/usr/bin/certbot"
 ACTIVE_HTTP_SERVICES=()
+TEMP_DIRS=()
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   C_RESET=$'\033[0m'
@@ -21,10 +23,42 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
 else
   C_RESET=''; C_BOLD=''; C_CYAN=''; C_GREEN=''; C_YELLOW=''; C_DIM=''
 fi
+CURL_PROGRESS=()
+[[ -t 1 ]] && CURL_PROGRESS=(--progress-bar)
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+info() { printf '%s›%s %s\n' "$C_CYAN" "$C_RESET" "$*"; }
+success() { printf '%s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
+warn() { printf '%s!%s %s\n' "$C_YELLOW" "$C_RESET" "$*" >&2; }
+step() { printf '\n%s[%s/%s]%s %s%s%s\n' "$C_CYAN" "$1" "$2" "$C_RESET" "$C_BOLD" "$3" "$C_RESET"; }
+show_banner() {
+  printf '\n%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
+  printf '%s│%s  %sConnecso Outbound Audit%s  %s· server installer%s             %s│%s\n' "$C_CYAN" "$C_RESET" "$C_BOLD" "$C_RESET" "$C_DIM" "$C_RESET" "$C_CYAN" "$C_RESET"
+  printf '%s╰──────────────────────────────────────────────────────────────╯%s\n' "$C_CYAN" "$C_RESET"
+}
+cleanup_temp_dirs() {
+  local directory
+  for directory in "${TEMP_DIRS[@]:-}"; do [[ -n "$directory" ]] && rm -rf -- "$directory"; done
+}
+run_apt_step() {
+  local label="$1" log
+  shift
+  log="$(mktemp)"
+  TEMP_DIRS+=("$log")
+  info "$label"
+  if "$@" >"$log" 2>&1; then
+    rm -f -- "$log"
+    TEMP_DIRS=()
+    success "$label"
+  else
+    local status=$?
+    printf 'Package operation failed; recent output follows:\n' >&2
+    tail -n 40 "$log" >&2 || true
+    die "$label failed with exit code $status."
+  fi
+}
 save_state() {
-  install -d -m 0700 "$DATA_DIR"
+  mkdir -p "$CONFIG_DIR"
   {
     printf 'STAGE=%q\n' "${STAGE:-0}"
     printf 'DOMAIN=%q\n' "${DOMAIN:-}"
@@ -35,6 +69,7 @@ save_state() {
     printf 'XRAY_BIN=%q\n' "${XRAY_BIN:-}"
     printf 'PROJECT_DIR=%q\n' "${PROJECT_DIR:-$SOURCE_DIR}"
   } > "$STATE_FILE.tmp"
+  chown root:root "$STATE_FILE.tmp"
   chmod 0600 "$STATE_FILE.tmp"
   mv -f "$STATE_FILE.tmp" "$STATE_FILE"
 }
@@ -49,9 +84,15 @@ ask_value() {
   fi
 }
 port_listening() {
-  command -v ss >/dev/null 2>&1 && ss -H -ltn "sport = :$1" | grep -q .
+  ss -H -ltn "sport = :$1" 2>/dev/null | grep -q .
 }
 port_listeners() { ss -H -ltnp "sport = :$1" 2>/dev/null || true; }
+certificate_valid() {
+  local candidate="$1" live="/etc/letsencrypt/live/$1"
+  [[ -s "$live/fullchain.pem" && -s "$live/privkey.pem" ]] \
+    && openssl x509 -in "$live/fullchain.pem" -noout -checkhost "$candidate" >/dev/null 2>&1 \
+    && openssl x509 -in "$live/fullchain.pem" -noout -checkend 2592000 >/dev/null 2>&1
+}
 stop_http_services_if_needed() {
   local service pid cgroup unit attempt listeners
   local -a owners=()
@@ -69,7 +110,7 @@ stop_http_services_if_needed() {
     die "TCP/80 is still occupied by a process not managed by a detectable systemd service. Current listener: ${listeners:-unknown}. Stop or reconfigure it, then rerun; no process was killed."
   fi
   ACTIVE_HTTP_SERVICES+=("${owners[@]}")
-  printf 'Temporarily stopping: %s (HTTP-01 needs TCP/80).\n' "${owners[*]}"
+  printf 'Temporarily stopping only the service(s) holding TCP/80: %s.\n' "${owners[*]}"
   for service in "${owners[@]}"; do systemctl stop "$service"; done
   for attempt in {1..20}; do
     port_listening 80 || return 0
@@ -77,6 +118,16 @@ stop_http_services_if_needed() {
   done
   listeners="$(port_listeners 80)"
   die "TCP/80 remained occupied after stopping ${owners[*]}. Current listener: ${listeners:-unknown}. The stopped services will be restored automatically."
+}
+valid_domain() {
+  local candidate="${1,,}" label
+  local -a labels=()
+  [[ ${#candidate} -le 253 && "$candidate" == *.* ]] || return 1
+  [[ ! "$candidate" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+  IFS='.' read -r -a labels <<< "$candidate"
+  for label in "${labels[@]}"; do
+    [[ -n "$label" && ${#label} -le 63 && "$label" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || return 1
+  done
 }
 restore_http_services() {
   local service
@@ -86,16 +137,30 @@ restore_http_services() {
   done
   ACTIVE_HTTP_SERVICES=()
 }
-trap 'restore_http_services' EXIT
+trap 'restore_http_services; cleanup_temp_dirs' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || die 'Run this installer as root.'
 command -v apt-get >/dev/null 2>&1 || die 'This installer currently supports Ubuntu and Debian.'
+[[ -r /etc/os-release ]] || die 'Could not identify this Linux distribution.'
+# shellcheck disable=SC1091
+source /etc/os-release
+[[ "${ID:-}" == ubuntu || "${ID:-}" == debian ]] || die "Unsupported Linux distribution: ${PRETTY_NAME:-unknown}. Use Ubuntu or Debian."
+command -v ss >/dev/null 2>&1 || die 'The ss utility is required for safe port checks; install iproute2 and rerun.'
+export NEEDRESTART_SUSPEND=1 DEBIAN_FRONTEND=noninteractive
 SOURCE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 [[ -f "$SOURCE_DIR/server.mjs" && -d "$SOURCE_DIR/src" && -d "$SOURCE_DIR/public" ]] || die 'Run install.sh from the extracted project directory.'
-install -d -m 0700 "$DATA_DIR"
+show_banner
+mkdir -p "$DATA_DIR" "$CONFIG_DIR"
+if [[ ! -e "$STATE_FILE" && -e "$LEGACY_STATE_FILE" ]]; then
+  [[ -f "$LEGACY_STATE_FILE" && ! -L "$LEGACY_STATE_FILE" ]] || die 'The saved installer state is not a regular file; refusing to load it as root.'
+  LEGACY_STATE_META="$(stat -c '%u:%a' "$LEGACY_STATE_FILE" 2>/dev/null || true)"
+  [[ "$LEGACY_STATE_META" == '0:600' ]] || die 'The legacy installer state is not root-only; inspect it and rerun safely.'
+  install -o root -g root -m 0600 "$LEGACY_STATE_FILE" "$STATE_FILE"
+fi
 if [[ -r "$STATE_FILE" ]]; then # shellcheck disable=SC1090
+  [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" && "$(stat -c '%u:%a' "$STATE_FILE")" == '0:600' ]] || die 'Installer state permissions are unsafe; refusing to source it as root.'
   source "$STATE_FILE"
 fi
 STAGE="${STAGE:-0}"
@@ -108,13 +173,21 @@ if (( STAGE >= 6 )) && [[ "${VLESS_AUDIT_APPLY_UPDATE:-0}" != 1 && -x /usr/local
 fi
 
 if (( STAGE < 1 )); then
-  ask_value DOMAIN 'Panel subdomain (must resolve directly to this server)' 'audit.example.com'
-  DOMAIN="${DOMAIN,,}"
-  [[ "$DOMAIN" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ && "$DOMAIN" == *.* && "$DOMAIN" != *..* ]] || die 'Enter a valid DNS hostname.'
-  ask_value PORT 'Panel HTTPS port' '3006'
-  [[ "$PORT" =~ ^[0-9]+$ ]] && (( PORT >= 1 && PORT <= 65535 )) || die 'Port must be between 1 and 65535.'
+  while true; do
+    ask_value DOMAIN 'Panel domain (DNS must point to this server)' 'audit.example.com'
+    DOMAIN="${DOMAIN,,}"
+    valid_domain "$DOMAIN" && break
+    warn 'Enter a valid DNS hostname, for example audit.example.com.'
+  done
+  while true; do
+    ask_value PORT 'Panel HTTPS port' '3006'
+    if [[ "$PORT" =~ ^[0-9]{1,5}$ ]]; then PORT=$((10#$PORT)); else PORT=0; fi
+    (( PORT >= 1 && PORT <= 65535 && PORT != 80 )) && break
+    warn 'Choose a port from 1 to 65535; port 80 is reserved for certificate validation.'
+  done
   if port_listening "$PORT"; then die "Port $PORT is already in use. Choose a free HTTPS port."; fi
   ask_value ADMIN_EMAIL "Email for Let's Encrypt certificate notices (optional)" ''
+  [[ -z "$ADMIN_EMAIL" || "$ADMIN_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || die 'Enter a valid email address or leave it empty.'
   PANEL_PASSWORD="${PANEL_PASSWORD:-}"
   if [[ -z "$PANEL_PASSWORD" ]]; then read -r -s -p 'Admin password (leave empty to generate one): ' PANEL_PASSWORD; printf '\n'; fi
   [[ -n "$PANEL_PASSWORD" ]] || PANEL_PASSWORD="$(openssl rand -hex 24)"
@@ -125,47 +198,76 @@ else
 fi
 
 if (( STAGE < 2 )); then
-  printf '\n[1/5] Installing required system packages…\n'
-  apt-get update
-  NEEDRESTART_MODE=l DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates curl xz-utils coreutils openssl certbot git iputils-ping
+  step 1 5 'Preparing system packages'
+  info 'Needrestart is suspended during package installation to avoid unrelated service restarts.'
+  run_apt_step 'Refreshing package lists' apt-get update -o Acquire::Retries=3
+  run_apt_step 'Installing required packages' apt-get install -y --no-install-recommends \
+    ca-certificates curl xz-utils coreutils openssl certbot git iproute2 iputils-ping
   CERTBOT="$(command -v certbot)"
+  command -v ss >/dev/null 2>&1 || die 'The iproute2 package was installed, but ss is still unavailable.'
+  if port_listening "$PORT" && ! { systemctl is-active --quiet "$APP_NAME.service" 2>/dev/null && [[ "${VLESS_AUDIT_APPLY_UPDATE:-0}" == 1 ]]; }; then
+    die "Port $PORT is already in use. Choose another panel port before installation."
+  fi
+  success 'System packages are ready; unrelated services were left running.'
   STAGE=2; save_state
 fi
 
+# A previous installer version may have remembered Node from /root/.nvm.
+# The panel runs with ProtectHome=true, so reselect a system or bundled runtime.
+if (( STAGE >= 3 )); then
+  NODE_CANDIDATE="$NODE_BIN"
+  NODE_REAL="$(readlink -f "$NODE_CANDIDATE" 2>/dev/null || true)"
+  NODE_MAJOR=0
+  case "$NODE_REAL" in /usr/*|/bin/*|"$APP_DIR/runtime"/*) NODE_MAJOR="$("$NODE_CANDIDATE" -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" ;; esac
+  if (( NODE_MAJOR < 18 )); then STAGE=2; save_state; fi
+fi
+
 if (( STAGE < 3 )); then
-  printf '\n[2/5] Preparing Node.js…\n'
+  step 2 5 'Preparing Node.js 22 LTS'
   NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
   NODE_MAJOR=0
-  if [[ -n "$NODE_BIN" ]]; then NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)"; fi
+  if [[ -n "$NODE_BIN" ]]; then
+    NODE_REAL="$(readlink -f "$NODE_BIN" 2>/dev/null || true)"
+    case "$NODE_REAL" in /usr/*|/bin/*|"$APP_DIR/runtime"/*) NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])' 2>/dev/null || printf 0)" ;; *) NODE_MAJOR=0 ;; esac
+  fi
   if (( NODE_MAJOR < 18 )); then
     MACHINE="$(uname -m)"
     case "$MACHINE" in x86_64|amd64) NODE_ARCH=x64 ;; aarch64|arm64) NODE_ARCH=arm64 ;; *) die "Unsupported CPU architecture: $MACHINE" ;; esac
     NODE_INDEX="$(mktemp)"
-    if ! curl -fsSL https://nodejs.org/dist/index.tab -o "$NODE_INDEX"; then
-      rm -f -- "$NODE_INDEX"
+    TEMP_DIRS+=("$NODE_INDEX")
+    if ! curl -fL --retry 3 --connect-timeout 15 https://nodejs.org/dist/index.tab -o "$NODE_INDEX"; then
       die 'Could not download the official Node.js version list.'
     fi
     NODE_VERSION="$(awk 'NR>1 && $1 ~ /^v22\./ {print $1; exit}' "$NODE_INDEX")"
     rm -f -- "$NODE_INDEX"
+    TEMP_DIRS=()
     [[ "$NODE_VERSION" =~ ^v22\.[0-9]+\.[0-9]+$ ]] || die 'Could not find an official Node.js 22 release.'
     NODE_ARCHIVE="node-${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
     NODE_URL="https://nodejs.org/dist/${NODE_VERSION}"
     TEMP_DIR="$(mktemp -d)"
-    curl -fsSL "$NODE_URL/$NODE_ARCHIVE" -o "$TEMP_DIR/$NODE_ARCHIVE"
-    curl -fsSL "$NODE_URL/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
-    (cd "$TEMP_DIR" && grep "  $NODE_ARCHIVE$" SHASUMS256.txt | sha256sum -c -)
+    TEMP_DIRS+=("$TEMP_DIR")
+    info 'Downloading the official Node.js runtime and verifying its SHA-256 checksum.'
+    curl -fL --retry 3 --connect-timeout 15 --max-time 300 "${CURL_PROGRESS[@]}" "$NODE_URL/$NODE_ARCHIVE" -o "$TEMP_DIR/$NODE_ARCHIVE"
+    curl -fsSL --retry 3 --connect-timeout 15 "$NODE_URL/SHASUMS256.txt" -o "$TEMP_DIR/SHASUMS256.txt"
+    EXPECTED_SHA="$(awk -v file="$NODE_ARCHIVE" '$2 == file || $2 == "*" file { print $1; exit }' "$TEMP_DIR/SHASUMS256.txt")"
+    [[ "$EXPECTED_SHA" =~ ^[A-Fa-f0-9]{64}$ ]] || die 'The official Node.js checksum was not found.'
+    printf '%s  %s\n' "$EXPECTED_SHA" "$TEMP_DIR/$NODE_ARCHIVE" | sha256sum -c -
     install -d -m 0755 "$APP_DIR/runtime"
     tar -xJf "$TEMP_DIR/$NODE_ARCHIVE" -C "$APP_DIR/runtime"
     NODE_BIN="$APP_DIR/runtime/node-${NODE_VERSION}-linux-${NODE_ARCH}/bin/node"
     rm -rf -- "$TEMP_DIR"
+    TEMP_DIRS=()
   fi
   NODE_MAJOR="$($NODE_BIN -p 'Number(process.versions.node.split(".")[0])')"
   (( NODE_MAJOR >= 18 )) || die 'Node.js 18 or newer is required.'
+  NODE_REAL="$(readlink -f "$NODE_BIN")"
+  case "$NODE_REAL" in /usr/*|/bin/*|"$APP_DIR/runtime"/*) ;; *) die 'Node.js must be installed outside protected home directories.' ;; esac
+  success "Node.js $($NODE_BIN --version) is ready."
   STAGE=3; save_state
 fi
 
 if (( STAGE < 4 )); then
-  printf '\n[3/5] Locating Xray without changing any existing Xray service…\n'
+  step 3 5 'Checking Xray runtime'
   XRAY_BIN="${XRAY_BIN:-}"
   if [[ -z "$XRAY_BIN" ]]; then
     for candidate in /usr/local/x-ui/bin/xray-linux-amd64 /usr/local/x-ui/bin/xray /usr/local/bin/xray /usr/bin/xray; do
@@ -173,18 +275,37 @@ if (( STAGE < 4 )); then
     done
   fi
   if [[ -z "$XRAY_BIN" ]]; then
+    XRAY_UNITS_BEFORE="$(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '$1 == "xray.service" || $1 ~ /^xray@.*\.service$/ {print $1}' || true)"
+    XRAY_ACTIVE_BEFORE="$(systemctl list-units --type=service --state=active --no-legend 2>/dev/null | awk '$1 == "xray.service" || $1 ~ /^xray@.*\.service$/ {print $1}' || true)"
     TEMP_XRAY="$(mktemp)"
+    TEMP_DIRS+=("$TEMP_XRAY")
     curl -fsSL https://github.com/XTLS/Xray-install/raw/main/install-release.sh -o "$TEMP_XRAY"
-    bash "$TEMP_XRAY" install --no-update-service
+    if bash "$TEMP_XRAY" install --no-update-service --manually-restart-later --without-geodata; then
+      XRAY_INSTALL_STATUS=0
+    else
+      XRAY_INSTALL_STATUS=$?
+    fi
     rm -f -- "$TEMP_XRAY"
+    TEMP_DIRS=()
     for candidate in /usr/local/bin/xray /usr/bin/xray; do if [[ -x "$candidate" ]]; then XRAY_BIN="$candidate"; break; fi; done
+    while IFS= read -r unit; do
+      [[ -n "$unit" ]] || continue
+      if ! grep -Fxq "$unit" <<< "$XRAY_ACTIVE_BEFORE"; then systemctl stop "$unit" >/dev/null 2>&1 || true; fi
+      if ! grep -Fxq "$unit" <<< "$XRAY_UNITS_BEFORE"; then systemctl disable "$unit" >/dev/null 2>&1 || true; fi
+    done < <(systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '$1 == "xray.service" || $1 ~ /^xray@.*\.service$/ {print $1}')
+    if (( XRAY_INSTALL_STATUS != 0 )); then
+      warn "The upstream installer returned $XRAY_INSTALL_STATUS; the Xray binary will be verified before continuing."
+    fi
   fi
   [[ -x "$XRAY_BIN" ]] || die 'Xray executable was not found or installed.'
+  XRAY_VERSION="$("$XRAY_BIN" version 2>&1 | head -n 1 || true)"
+  [[ -n "$XRAY_VERSION" ]] || die "Xray binary could not run: $XRAY_BIN"
+  success "Using $XRAY_BIN · $XRAY_VERSION"
   STAGE=4; save_state
 fi
 
 if (( STAGE < 5 )); then
-  printf '\n[4/5] Requesting TLS certificate for %s…\n' "$DOMAIN"
+  step 4 5 "Validating DNS and TLS for $DOMAIN"
   command -v getent >/dev/null 2>&1 || die 'getent is required to verify DNS.'
   RESOLVED_V4="$(getent ahostsv4 "$DOMAIN" | awk '{print $1}' | sort -u || true)"
   PUBLIC_IP="$(curl -4fsS --max-time 8 https://api.ipify.org || true)"
@@ -193,7 +314,7 @@ if (( STAGE < 5 )); then
     printf 'Resolved IPv4 addresses for %s:\n%s\n' "$DOMAIN" "$RESOLVED_V4" >&2
     die "None of those A records matches this server's public IPv4 ($PUBLIC_IP). Point an A record directly to this server and rerun."
   fi
-  if ! "$CERTBOT" certificates 2>/dev/null | grep -Fq "Domains: $DOMAIN"; then
+  if ! certificate_valid "$DOMAIN"; then
     # HTTP-01 standalone always binds TCP/80. Stop the systemd service(s)
     # owning the actual listeners and verify the port is free before Certbot.
     stop_http_services_if_needed
@@ -205,11 +326,12 @@ if (( STAGE < 5 )); then
     restore_http_services
   fi
   CERT_LIVE="/etc/letsencrypt/live/$DOMAIN"
-  [[ -s "$CERT_LIVE/fullchain.pem" && -s "$CERT_LIVE/privkey.pem" ]] || die 'Certificate files were not created.'
+  certificate_valid "$DOMAIN" || die "No valid certificate was issued for $DOMAIN. Check DNS, firewall access to TCP/80, and the Certbot log."
+  success "TLS certificate is valid for $DOMAIN."
   STAGE=5; save_state
 fi
 
-printf '\n[5/5] Installing/updating the panel files and service…\n'
+step 5 5 'Installing the panel and checking it is healthy'
 if ! getent group "$APP_NAME" >/dev/null; then groupadd --system "$APP_NAME"; fi
 if ! id "$APP_NAME" >/dev/null 2>&1; then useradd --system --gid "$APP_NAME" --home-dir "$DATA_DIR" --shell /usr/sbin/nologin "$APP_NAME"; fi
 install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/public/assets" "$CONFIG_DIR"
@@ -334,22 +456,48 @@ chmod 0644 /etc/systemd/system/vless-audit-self-update.{service,path}
 install -d -m 0755 /etc/letsencrypt/renewal-hooks/pre /etc/letsencrypt/renewal-hooks/post /etc/letsencrypt/renewal-hooks/deploy
 cat > /etc/letsencrypt/renewal-hooks/pre/20-vless-audit <<'EOF'
 #!/usr/bin/env bash
-set -e
+set -Eeuo pipefail
 STATE=/run/vless-audit-stopped-web-services
 : > "$STATE"
 ss -H -ltn 'sport = :80' | grep -q . || exit 0
-for svc in apache2 nginx caddy lighttpd; do
-  if systemctl is-active --quiet "$svc" && systemctl list-units --type=service --state=active --no-legend | awk '{print $1}' | grep -Fxq "$svc.service"; then
-    echo "$svc" >> "$STATE"
-    systemctl stop "$svc"
+owners=()
+while IFS= read -r pid; do
+  [[ "$pid" =~ ^[0-9]+$ && -r "/proc/$pid/cgroup" ]] || continue
+  cgroup="$(cat "/proc/$pid/cgroup" 2>/dev/null || true)"
+  unit="$(grep -oE '[^/]+\.service' <<< "$cgroup" | tail -n 1 || true)"
+  [[ -n "$unit" ]] || continue
+  systemctl is-active --quiet "$unit" || continue
+  [[ " ${owners[*]} " == *" $unit "* ]] || owners+=("$unit")
+done < <(ss -H -ltnp 'sport = :80' | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+if ((${#owners[@]} == 0)); then
+  echo "TCP/80 is occupied, but its systemd service owner could not be identified; no service was stopped." >&2
+  exit 1
+fi
+restore_on_failure() {
+  local status=$?
+  if (( status != 0 )); then
+    while IFS= read -r service; do [[ -n "$service" ]] && systemctl start "$service" || true; done < "$STATE"
+    rm -f "$STATE"
   fi
+}
+trap restore_on_failure EXIT
+printf '%s\n' "${owners[@]}" > "$STATE"
+for service in "${owners[@]}"; do systemctl stop "$service"; done
+for attempt in {1..20}; do
+  ss -H -ltn 'sport = :80' | grep -q . || exit 0
+  sleep 0.5
 done
+echo "TCP/80 remained occupied after stopping ${owners[*]}." >&2
+exit 1
 EOF
 cat > /etc/letsencrypt/renewal-hooks/post/20-vless-audit <<'EOF'
 #!/usr/bin/env bash
-set -e
+set -Eeuo pipefail
 STATE=/run/vless-audit-stopped-web-services
-if [[ -r "$STATE" ]]; then while IFS= read -r svc; do [[ -n "$svc" ]] && systemctl start "$svc" || true; done < "$STATE"; rm -f "$STATE"; fi
+if [[ -r "$STATE" ]]; then
+  while IFS= read -r service; do [[ -n "$service" ]] && systemctl start "$service" || true; done < "$STATE"
+  rm -f "$STATE"
+fi
 EOF
 cat > /etc/letsencrypt/renewal-hooks/deploy/20-vless-audit <<EOF
 #!/usr/bin/env bash
@@ -361,17 +509,28 @@ systemctl try-restart $APP_NAME.service
 EOF
 chmod 0755 /etc/letsencrypt/renewal-hooks/{pre,post,deploy}/20-vless-audit
 
-systemctl daemon-reload
-systemctl enable --now "$APP_NAME.service"
-systemctl restart "$APP_NAME.service"
-if ! systemctl enable --now vless-audit-self-update.path; then
-  printf '\nWarning: the panel is running, but automatic in-panel updates could not be enabled.\n' >&2
-  if command -v systemd-analyze >/dev/null 2>&1; then
-    systemd-analyze verify /etc/systemd/system/vless-audit-self-update.path /etc/systemd/system/vless-audit-self-update.service 2>&1 || true
-  fi
-  systemctl status --no-pager --full vless-audit-self-update.path 2>&1 || true
-  journalctl -u vless-audit-self-update.path -n 12 --no-pager 2>&1 || true
+if command -v systemd-analyze >/dev/null 2>&1; then
+  systemd-analyze verify "$SERVICE_FILE" /etc/systemd/system/vless-audit-self-update.path /etc/systemd/system/vless-audit-self-update.service
 fi
+systemctl daemon-reload
+systemctl enable "$APP_NAME.service"
+systemctl restart "$APP_NAME.service"
+systemctl enable --now vless-audit-self-update.path
+systemctl is-active --quiet vless-audit-self-update.path || die 'The panel is running, but the update watcher did not become active. Review the systemd error above and rerun the installer.'
+HEALTHY=0
+for attempt in {1..30}; do
+  if systemctl is-active --quiet "$APP_NAME.service"; then
+    HEALTH="$(curl -kfsS --max-time 3 --resolve "$DOMAIN:$PORT:127.0.0.1" "https://$DOMAIN:$PORT/api/health" 2>/dev/null || true)"
+    if [[ "$HEALTH" == *'"ok":true'* ]]; then HEALTHY=1; break; fi
+  fi
+  sleep 1
+done
+if (( HEALTHY == 0 )); then
+  printf '\nPanel health check failed. Recent service logs:\n' >&2
+  journalctl -u "$APP_NAME.service" -n 40 --no-pager >&2 || true
+  die 'The panel service did not pass its local HTTPS health check.'
+fi
+success 'Panel service and local HTTPS health check passed.'
 STAGE=6; save_state
 printf '\n%s╭──────────────────────────────────────────────────────────────╮%s\n' "$C_CYAN" "$C_RESET"
 printf '%s│%s  %s✓  INSTALLATION COMPLETE%s                                  %s│%s\n' "$C_CYAN" "$C_RESET" "$C_GREEN" "$C_RESET" "$C_CYAN" "$C_RESET"
@@ -380,5 +539,6 @@ printf '\n  %sPanel URL%s       %s%shttps://%s:%s/%s\n' "$C_BOLD" "$C_RESET" "$C
 printf '  %sLogin user%s      %sadmin%s\n' "$C_BOLD" "$C_RESET" "$C_GREEN" "$C_RESET"
 printf '  %sAdmin password%s  %s%s%s\n' "$C_BOLD" "$C_RESET" "$C_YELLOW" "$PANEL_PASSWORD" "$C_RESET"
 printf '\n  %sSave these login details before closing this terminal.%s\n' "$C_DIM" "$C_RESET"
-printf '  %sRerunning the installer preserves the results and password.%s\n' "$C_DIM" "$C_RESET"
-printf '  %sRemove %s only after confirming the panel works and saving the password.%s\n' "$C_DIM" "$STATE_FILE" "$C_RESET"
+printf '  %sOpen maintenance later with ConnecsoTools or CTS.%s\n' "$C_DIM" "$C_RESET"
+printf '  %sThe installer resumes safely if rerun; audit history and credentials are preserved.%s\n' "$C_DIM" "$C_RESET"
+printf '  %sUninstall: sudo bash %s/uninstall.sh%s\n' "$C_DIM" "$PROJECT_DIR" "$C_RESET"
