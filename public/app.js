@@ -5,6 +5,24 @@ const elements = {
   progressCount: $('#progress-count'), progressBar: $('#progress-bar'), progressMessage: $('#progress-message'), history: $('#history-list'),
   results: $('#results-section'), resultsTitle: $('#results-title'), resultsSummary: $('#results-summary'), search: $('#result-search'), countries: $('#country-results'),
 };
+const resultHeading = document.querySelector('.result-heading');
+const resultTools = document.querySelector('.results-tools');
+if (resultHeading && resultTools) {
+  const actions = document.createElement('div');
+  actions.className = 'results-header-actions';
+  actions.innerHTML = '<button class="copy-button ping-all-button" type="button" data-ping-all-visible data-i18n="pingAll"></button><button id="copy-all-json-top" class="copy-button json-copy" type="button" data-i18n="copyJson"></button><button id="download-all-json" class="copy-button json-download" type="button" data-i18n="downloadJson"></button>';
+  resultHeading.append(actions);
+  const protocolSelect = resultTools.querySelector('#result-protocol');
+  if (protocolSelect) {
+    const protocolButtons = document.createElement('div');
+    protocolButtons.className = 'protocol-filter-buttons';
+    protocolButtons.setAttribute('role', 'group');
+    protocolButtons.setAttribute('aria-label', 'Filter by protocol');
+    protocolButtons.innerHTML = [...protocolSelect.options].map((option) => `<button type="button" class="protocol-filter-button" data-result-protocol="${option.value}" ${option.value === 'all' ? 'data-i18n="allProtocols"' : ''} aria-pressed="${option.value === protocolSelect.value}">${escapeHtml(option.textContent)}</button>`).join('');
+    protocolSelect.before(protocolButtons);
+  }
+  const shown = document.createElement('span'); shown.id = 'results-shown'; shown.className = 'results-shown'; resultTools.append(shown);
+}
 const dictionaries = {
   fa: {
     skip:'رفتن به بخش اصلی', private:'محیط خصوصی', xray:'تست واقعی با Xray', darkTheme:'تیره', lightTheme:'روشن', logout:'خروج', toolTitle:'بررسی اوتباند', toolSubtitle:'بررسی، مقایسه و آماده‌سازی خروجی JSON', scanOptions:'گزینه‌های بررسی', checkExit:'بررسی IP خروجی', protocolFilters:'\u0641\u06cc\u0644\u062a\u0631 \u0628\u0631 \u0627\u0633\u0627\u0633 \u067e\u0631\u0648\u062a\u06a9\u0644', protocolSupportHint:'WireGuard \u0648 MASQUE \u0628\u0627 JSON \u062e\u0631\u0648\u062c\u06cc Xray \u0642\u0627\u0628\u0644 \u0628\u0631\u0631\u0633\u06cc\u200c\u0627\u0646\u062f\u061b AmneziaWG \u0628\u0647 \u0647\u0633\u062a\u0647\u0654 \u062c\u062f\u0627\u06af\u0627\u0646\u0647 \u0646\u06cc\u0627\u0632 \u062f\u0627\u0631\u062f.', exitServiceOptions:'\u0628\u0631\u0631\u0633\u06cc IP \u062e\u0631\u0648\u062c\u06cc \u0648 \u0633\u0631\u0648\u06cc\u0633\u200c\u0647\u0627', noProtocols:'\u062d\u062f\u0627\u0642\u0644 \u06cc\u06a9 \u067e\u0631\u0648\u062a\u06a9\u0644 \u0631\u0627 \u0627\u0646\u062a\u062e\u0627\u0628 \u06a9\u0646.',
@@ -96,6 +114,8 @@ Object.assign(dictionaries.en, {
   groupProgress:(ok,checked,total)=>`${number(ok)} responded · ${number(checked)} of ${number(total)} checked`,
   endpointConnect:'Server → endpoint', stopInteractive:'Stop interactive check', interactiveBusy:'An interactive check is running',
 });
+Object.assign(dictionaries.fa, { newAudit:'بررسی جدید', newAuditSubtitle:'مسیرها را بررسی کن و زمان پاسخ واقعی مقصد را مقایسه کن.', scanName:'نام بررسی', scanTags:'برچسب‌ها', optional:'اختیاری', scanNamePlaceholder:'مثلاً مسیرهای آخر هفته', scanTagsPlaceholder:'Iran, gaming, Reality', resultsShown:(shown,total)=>`${number(shown)} نمایش از ${number(total)}`, pingAll:'پینگ همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON' });
+Object.assign(dictionaries.en, { newAudit:'NEW AUDIT', newAuditSubtitle:'Check routes and compare real endpoint response times.', scanName:'Scan name', scanTags:'Tags', optional:'optional', scanNamePlaceholder:'For example, weekend routes', scanTagsPlaceholder:'Iran, gaming, Reality', resultsShown:(shown,total)=>`${number(shown)} of ${number(total)} shown`, pingAll:'Ping all', copyJson:'Copy JSON', downloadJson:'Download JSON' });
 const faNum = new Intl.NumberFormat('fa-IR');
 const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
@@ -400,7 +420,7 @@ async function rerunPing(index, button) {
   finally{button.disabled=false;button.textContent=t('pingAgain');}
 }
 async function rerunCountryPings(country, button) {
-  const items=state.currentResults.filter((item)=>(item.country||t('countryUnknown'))===country&&item.ok&&item.uri);
+  const items=state.currentResults.filter((item)=>(country==='__all__'||(item.country||t('countryUnknown'))===country)&&item.ok&&item.uri);
   if(!items.length||state.interactiveId)return;
   const original=button.textContent;button.disabled=true;button.textContent=t('pingAllChecking');
   try{
@@ -408,6 +428,12 @@ async function rerunCountryPings(country, button) {
     await watchInteractive(data, { items });
   }catch(error){showError(error.message);}
   finally{button.disabled=false;button.textContent=original;}
+}
+function downloadAllJson(button) {
+  const content=JSON.stringify(uniqueOutbounds(state.currentResults),null,2);
+  const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+  const link=document.createElement('a');link.href=url;link.download='outbounds-all.json';document.body.append(link);link.click();link.remove();
+  window.setTimeout(()=>{URL.revokeObjectURL(url);if(button)button.textContent=t('downloadJson');},1000);
 }
 async function runDownloadTest(index, button) {
   const item=state.currentResults[index]; if(!item?.uri||state.interactiveId)return;
@@ -479,6 +505,8 @@ function renderResults() {
     if ($('#hide-duplicates').checked && duplicates.has(item.uri)) return false;
     return true;
   });
+  const shown=$('#results-shown');if(shown)shown.textContent=t('resultsShown',filtered.length,state.currentResults.length);
+  document.querySelectorAll('.protocol-filter-button').forEach((button)=>{const selected=button.dataset.resultProtocol===protocolFilter;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));});
   const compare = (a,b) => {
     if (state.sortBy === 'name') return String(a.name || a.endpoint).localeCompare(String(b.name || b.endpoint), state.lang);
     if (state.sortBy === 'country') return String(a.country || '').localeCompare(String(b.country || ''), state.lang) || String(a.name || '').localeCompare(String(b.name || ''), state.lang);
@@ -551,6 +579,7 @@ document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()
 elements.form.addEventListener('submit',async(event)=>{
   event.preventDefault();const replacingCheck=state.busy&&['ping-all','audit'].includes(state.busyKind);if(state.busy&&!replacingCheck)return;showError();const isUrl=!$('#url-mode').hidden;
     const payload=scanFilters(elements.form);if(!payload.protocolIds.length)return showError(t('noProtocols'));if(!payload.securityTypes.length||!payload.transportTypes.length)return showError(t('noScanFilters'));
+  payload.title=$('#scan-name').value.trim();payload.tags=$('#scan-tags').value.split(',').map((tag)=>tag.trim()).filter(Boolean);
   if(isUrl)payload.subscriptionUrl=elements.url.value.trim();else payload.text=elements.text.value.trim();
   if(isUrl&&!payload.subscriptionUrl)return showError(t('askUrl'));if(!isUrl&&!payload.text)return showError(t('askText'));
   const previousGeneration=state.activityGeneration;let generation=previousGeneration;let accepted=false;let declined=false;
@@ -698,6 +727,7 @@ $('#select-visible').addEventListener('click',()=>{for(const index of state.visi
 $('#clear-selection').addEventListener('click',()=>{state.selectedUris.clear();renderResults();});
 $('#copy-selected-json').addEventListener('click',(event)=>{const items=state.currentResults.filter((item)=>state.selectedUris.has(item.uri));copyText(JSON.stringify(uniqueOutbounds(items),null,2),event.currentTarget);});
 $('#copy-all-json').addEventListener('click',(event)=>copyText(JSON.stringify(uniqueOutbounds(state.currentResults),null,2),event.currentTarget));
+$('#results-section').addEventListener('click',(event)=>{const protocol=event.target.closest('[data-result-protocol]');if(protocol){$('#result-protocol').value=protocol.dataset.resultProtocol;renderResults();return;}const button=event.target.closest('[data-ping-all-visible]');if(button){rerunCountryPings('__all__',button);return;}if(event.target.closest('#copy-all-json-top'))copyText(JSON.stringify(uniqueOutbounds(state.currentResults),null,2),event.target.closest('#copy-all-json-top'));if(event.target.closest('#download-all-json'))downloadAllJson(event.target.closest('#download-all-json'));});
 $('#result-sort').addEventListener('change',(event)=>{state.sortBy=event.target.value;renderResults();});
 $('#result-protocol').addEventListener('change',renderResults);$('#result-security').addEventListener('change',renderResults);$('#result-transport').addEventListener('change',renderResults);$('#hide-duplicates').addEventListener('change',renderResults);
 $('#country-filters').addEventListener('click',(event)=>{const button=event.target.closest('[data-country-filter]');if(!button)return;state.selectedCountry=button.dataset.countryFilter;renderResults();});

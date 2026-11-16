@@ -258,6 +258,8 @@ async function beginJob(configs, offset, subscriptionUrl = '', message = '', sca
     scanConfigs: selected,
     ...(message ? { message } : {}),
     ...(subscriptionUrl ? { subscriptionUrl } : {}),
+    ...(String(scanOptions.title || '').trim() ? { title: String(scanOptions.title).trim().slice(0, 80) } : {}),
+    tags: [...new Set((Array.isArray(scanOptions.tags) ? scanOptions.tags : []).map((tag) => String(tag).trim()).filter(Boolean))].slice(0, 8).map((tag) => tag.slice(0, 24)),
   };
   jobs.set(id, job);
   await saveJob(RESULTS, job);
@@ -934,7 +936,7 @@ async function route(request, response) {
     if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
     const offset = 0;
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
-    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds, securityTypes, transportTypes }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds, securityTypes, transportTypes, title: previous.title, tags: previous.tags }));
   }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {
@@ -1045,7 +1047,11 @@ async function route(request, response) {
         return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
       }
     }
-    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds, securityTypes, transportTypes }));
+    const title = String(input.title || '').trim();
+    const tags = [...new Set((Array.isArray(input.tags) ? input.tags : String(input.tags || '').split(',')).map((tag) => String(tag).trim()).filter(Boolean))];
+    if (title.length > 80) return fail(response, 400, 'نام حداکثر ۸۰ نویسه باشد.');
+    if (tags.length > 8 || tags.some((tag) => tag.length > 24)) return fail(response, 400, 'حداکثر ۸ برچسب، هرکدام تا ۲۴ نویسه مجاز است.');
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds, securityTypes, transportTypes, title, tags }));
   }
   return fail(response, 404, 'این مسیر پیدا نشد.');
 }

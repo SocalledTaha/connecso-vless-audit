@@ -7,9 +7,9 @@
   <meta name="description" content="Connecso outbound testing and JSON export">
   <meta name="theme-color" content="#080c10">
   <title>VLESS Outbound Tools</title>
-  <link rel="icon" href="/assets/favicon.svg?v=20261115" type="image/svg+xml">
-  <link rel="stylesheet" href="/assets/app.css?v=20261115">
-  <script src="/assets/app.js?v=20261115" defer></script>
+  <link rel="icon" href="/assets/favicon.svg?v=20261117" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/app.css?v=20261117">
+  <script src="/assets/app.js?v=20261117" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main" data-i18n="skip">رفتن به بخش اصلی</a>
@@ -32,22 +32,22 @@
 
     <section class="work-grid" aria-label="Outbound audit">
       <article class="panel input-panel">
-        <div class="panel-heading"><div><h2 data-i18n="sourceTitle">ورودی کانفیگ</h2></div></div>
+        <div class="panel-heading"><div><span class="step-label" data-i18n="newAudit">بررسی جدید</span><h2 data-i18n="sourceTitle">ورودی کانفیگ</h2><p class="field-hint" data-i18n="newAuditSubtitle">مسیرها را بررسی کن و زمان پاسخ واقعی مقصد را مقایسه کن.</p></div>
         <div class="input-tabs" role="tablist" aria-label="Input method">
           <button class="tab active" type="button" role="tab" aria-selected="true" data-mode="url" data-i18n="tabUrl">لینک اشتراک</button>
           <button class="tab" type="button" role="tab" aria-selected="false" data-mode="text" data-i18n="tabText">متن کانفیگ</button>
-        </div>
+        </div></div>
         <form id="analyze-form">
           <div id="url-mode" class="field-group"><label for="subscription-url" data-i18n="urlLabel">آدرس HTTPS اشتراک</label><div class="input-wrap ltr"><span class="input-prefix" aria-hidden="true">↗</span><input id="subscription-url" name="subscriptionUrl" type="url" autocomplete="url" placeholder="https://example.com/subscription" spellcheck="false"></div><p class="field-hint" data-i18n="urlHint">آدرس فقط برای دریافت همین نوبت بررسی می‌شود.</p></div>
           <div id="text-mode" class="field-group" hidden><label for="subscription-text" data-i18n="textLabel">کانفیگ‌ها یا متن اشتراک</label><textarea id="subscription-text" name="text" class="ltr" rows="5" placeholder="vless://…  ss://…  hysteria2://…"></textarea><p class="field-hint" data-i18n="textHint">متن ساده یا Base64 پذیرفته می‌شود.</p></div>
-          <p class="batch-hint scan-batch-hint" data-i18n="batchHint">تعداد workerها با توجه به رم آزاد سرور خودکار تنظیم می‌شود.</p>
+          <div class="audit-meta-fields"><div class="field-group"><label for="scan-name"><span data-i18n="scanName">نام بررسی</span> <span class="optional-label" data-i18n="optional">اختیاری</span></label><input id="scan-name" name="title" type="text" maxlength="80" placeholder="مثلاً مسیرهای آخر هفته" data-placeholder="scanNamePlaceholder"></div><div class="field-group"><label for="scan-tags"><span data-i18n="scanTags">برچسب‌ها</span> <span class="optional-label" data-i18n="optional">اختیاری</span></label><input id="scan-tags" name="tags" type="text" maxlength="200" placeholder="Iran, gaming, Reality" data-placeholder="scanTagsPlaceholder"></div></div>
           <details class="scan-options"><summary data-i18n="scanOptions">Check options</summary>
             <fieldset><legend data-i18n="protocolFilters">Filter by protocol</legend><div class="scan-option-grid"><label class="option-check"><input class="protocol-option" type="checkbox" value="vless" checked><span>VLESS</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="vmess" checked><span>VMess</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="trojan" checked><span>Trojan</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="shadowsocks" checked><span>Shadowsocks</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="hysteria2" checked><span>Hysteria2</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="wireguard" checked><span>WireGuard</span></label><label class="option-check"><input class="protocol-option" type="checkbox" value="masque" checked><span>MASQUE</span></label></div></fieldset>
             <fieldset><legend data-i18n="securityFilters">Filter by security</legend><div class="scan-option-grid"><label class="option-check"><input class="security-option" type="checkbox" value="tls" checked><span>TLS</span></label><label class="option-check"><input class="security-option" type="checkbox" value="reality" checked><span>REALITY</span></label><label class="option-check"><input class="security-option" type="checkbox" value="none" checked><span data-i18n="noSecurity">None</span></label><label class="option-check"><input class="security-option" type="checkbox" value="other" checked><span data-i18n="otherSecurity">Other / protocol-native</span></label></div></fieldset>
             <fieldset><legend data-i18n="transportFilters">Filter by transport</legend><div class="scan-option-grid"><label class="option-check"><input class="transport-option" type="checkbox" value="tcp" checked><span>TCP / Raw</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="ws" checked><span>WebSocket</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="grpc" checked><span>gRPC</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="xhttp" checked><span>XHTTP</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="httpupgrade" checked><span>HTTP Upgrade</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="http2" checked><span>HTTP/2</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="kcp" checked><span>mKCP</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="hysteria2" checked><span>Hysteria2</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="quic" checked><span>QUIC</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="wireguard" checked><span>WireGuard / UDP</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="masque" checked><span>MASQUE / HTTP3</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="tcpudp" checked><span>TCP + UDP</span></label><label class="option-check"><input class="transport-option" type="checkbox" value="other" checked><span data-i18n="otherTransport">Other</span></label></div></fieldset>
             <p class="field-hint protocol-hint" data-i18n="protocolSupportHint">WireGuard and MASQUE can be imported as Xray outbound JSON. AmneziaWG needs a separate core.</p>
           </details>
-          <button id="start-button" class="primary-button" type="submit"><span data-i18n="start">شروع بررسی</span><span class="button-arrow" aria-hidden="true">←</span></button><p id="form-error" class="inline-error" role="alert" hidden></p>
+          <div class="audit-submit-row"><p class="batch-hint scan-batch-hint" data-i18n="batchHint">تعداد workerها با توجه به رم آزاد سرور خودکار تنظیم می‌شود.</p><button id="start-button" class="primary-button" type="submit"><span data-i18n="start">شروع بررسی</span><span class="button-arrow" aria-hidden="true">←</span></button></div><p id="form-error" class="inline-error" role="alert" hidden></p>
         </form>
       </article>
 
