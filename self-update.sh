@@ -11,6 +11,9 @@ STATUS="$DATA_DIR/results/update-status.json"
 LOCK="$DATA_DIR/update.lock"
 stage="startup"
 backup=""
+stage_started_at=""
+last_message=""
+heartbeat_pid=""
 
 exec 9>"$LOCK"
 flock -n 9 || exit 0
@@ -25,19 +28,31 @@ status_written=0
 
 write_status() {
   local state="$1" error="${2:-}" message="${3:-}" temp="$STATUS.tmp"
-  python3 - "$request_id" "$state" "$error" "$message" > "$temp" <<'PY'
+  if [[ "$message" != "$last_message" || -z "$stage_started_at" ]]; then
+    stage_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    last_message="$message"
+  fi
+  python3 - "$request_id" "$state" "$error" "$message" "$stage_started_at" > "$temp" <<'PY'
 import datetime,json,sys
-print(json.dumps({"id":sys.argv[1],"state":sys.argv[2],"error":sys.argv[3],"message":sys.argv[4],"updatedAt":datetime.datetime.now(datetime.timezone.utc).isoformat()}))
+print(json.dumps({"id":sys.argv[1],"state":sys.argv[2],"error":sys.argv[3],"message":sys.argv[4],"stageStartedAt":sys.argv[5],"updatedAt":datetime.datetime.now(datetime.timezone.utc).isoformat()}))
 PY
   chown "$APP_NAME:$APP_NAME" "$temp"
   chmod 0640 "$temp"
   mv -f -- "$temp" "$STATUS"
 }
 fail() { status_written=1; write_status failed "$1" updateFailed; exit 1; }
+stop_heartbeat() {
+  if [[ -n "$heartbeat_pid" ]]; then
+    kill "$heartbeat_pid" 2>/dev/null || true
+    wait "$heartbeat_pid" 2>/dev/null || true
+    heartbeat_pid=""
+  fi
+}
 on_error() {
   local code="$1" line="$2" command="$3"
   (( code != 0 )) || return 0
   trap - ERR
+  stop_heartbeat
   status_written=1
   local detail="Unexpected failure during ${stage} (line ${line}, exit ${code}): ${command}"
   write_status failed "$detail" updateFailed || true
@@ -49,7 +64,7 @@ on_error() {
   fi
   exit "$code"
 }
-on_exit() { local code=$?; if (( code != 0 && status_written == 0 )); then write_status failed "Update stopped unexpectedly during ${stage} (exit ${code})." || true; fi; }
+on_exit() { local code=$?; stop_heartbeat; if (( code != 0 && status_written == 0 )); then write_status failed "Update stopped unexpectedly during ${stage} (exit ${code})." || true; fi; }
 trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 trap on_exit EXIT
 
@@ -100,7 +115,20 @@ NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
 [[ -x "$NPM_BIN" ]] || NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || fail "npm is required to install the local GeoIP reader."
-if ! "$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund; then
+"$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=90000 &
+npm_pid=$!
+(
+  while kill -0 "$npm_pid" 2>/dev/null; do
+    sleep 5
+    kill -0 "$npm_pid" 2>/dev/null || break
+    write_status installing "" updateDependencies || true
+  done
+) &
+heartbeat_pid=$!
+npm_exit=0
+wait "$npm_pid" || npm_exit=$?
+stop_heartbeat
+if (( npm_exit != 0 )); then
   rm -rf -- "$APP_DIR/node_modules"
   tar -C "$APP_DIR" -xzf "$backup"
   rm -f -- "$backup"

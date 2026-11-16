@@ -40,7 +40,7 @@ const dictionaries = {
     replacePingConfirm:'یک بررسی هنوز در حال اجراست. متوقفش کنم و بررسی این فهرست جدید را همین حالا شروع کنم؟',
     newResults:'نتیجهٔ بررسی جدید', savedResults:'نتیجه‌های ذخیره‌شده', noReplyText:'پاسخ HTTPS از مسیر کانفیگ دریافت نشد.',
     serviceHint:'دسترسی فقط با درخواست HTTPS بررسی می‌شود؛ وضعیت ممکن است با محدودیت منطقه‌ای سرویس فرق داشته باشد.',
-    updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updatePreparing:'در حال آماده‌سازی فایل‌های پنل…', updateDependencies:'در حال نصب وابستگی‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
+    updateButton:'به‌روزرسانی', updateConfirm:'نسخهٔ تازه را از گیت‌هاب دریافت و پنل را پس از نصب دوباره بارگذاری کنم؟', updateQueued:'درخواست به‌روزرسانی ثبت شد…', updateChecking:'در حال بررسی نسخهٔ تازه…', updateDownloading:'در حال دریافت فایل‌ها…', updatePreparing:'در حال آماده‌سازی فایل‌های پنل…', updateDependencies:'در حال نصب وابستگی‌ها…', updateInstalling:'در حال نصب نسخهٔ تازه…', updateRestarting:'در حال راه‌اندازی دوبارهٔ پنل…', updateElapsed:(m,s)=>`زمان این مرحله: ${number(m)} دقیقه و ${number(s)} ثانیه`, updateComplete:'به‌روزرسانی انجام شد؛ صفحه در حال بارگذاری دوباره است.', updateFailed:'به‌روزرسانی ناموفق بود', updateNoHelper:'امکان به‌روزرسانی داخل پنل روی این نصب فعال نشده است.',
     themeLabel:'تغییر تم', langLabel:'Switch to English', healthError:'ارتباط با سرویس برقرار نشد',
   },
   en: {
@@ -76,7 +76,7 @@ const dictionaries = {
     replacePingConfirm:'A check is still running. Stop it and start checking this new list now?',
     newResults:'New audit results', savedResults:'Saved audit results', noReplyText:'No HTTPS response came through this route.',
     serviceHint:'Checks use HTTPS requests only; regional service restrictions may affect availability.',
-    updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking the installation…', updateDownloading:'Downloading the latest files…', updatePreparing:'Preparing the panel files…', updateDependencies:'Installing dependencies…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
+    updateButton:'Update', updateConfirm:'Download and install the latest GitHub version, then reload the panel?', updateQueued:'Update request queued…', updateChecking:'Checking the installation…', updateDownloading:'Downloading the latest files…', updatePreparing:'Preparing the panel files…', updateDependencies:'Installing dependencies…', updateInstalling:'Installing the new version…', updateRestarting:'Restarting the panel…', updateElapsed:(m,s)=>`This step has taken ${number(m)}m ${number(s)}s`, updateComplete:'Update complete; reloading the page.', updateFailed:'Update failed', updateNoHelper:'In-panel updates are not enabled for this installation.',
     themeLabel:'Toggle theme', langLabel:'تغییر زبان به فارسی', healthError:'Could not connect to the audit service',
   },
 };
@@ -146,7 +146,12 @@ function showUpdateStatus(status) {
   output.hidden = status.state === 'idle' || dismissed;
   output.classList.toggle('is-error', status.state === 'failed');
   const messageKey = status.message || (status.state === 'complete' ? 'updateComplete' : UPDATE_LABELS[status.state]);
-  $('#update-status-message').textContent = status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : messageKey ? t(messageKey) : t('updateNoHelper');
+  let statusText = status.state === 'failed' ? `${t('updateFailed')}: ${status.error || ''}` : messageKey ? t(messageKey) : t('updateNoHelper');
+  if (active && status.stageStartedAt) {
+    const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(status.stageStartedAt)) / 1000));
+    if (elapsed >= 10) statusText += ` · ${t('updateElapsed', Math.floor(elapsed / 60), elapsed % 60)}`;
+  }
+  $('#update-status-message').textContent = statusText;
   button.disabled = active;
   if (status.state === 'failed' && !wasSame && !dismissed) {
     window.setTimeout(() => {
