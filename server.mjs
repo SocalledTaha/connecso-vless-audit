@@ -700,6 +700,11 @@ async function route(request, response) {
     const cookie = `vless_audit_session=${sessionId}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Strict`;
     return redirect(response, '/', { 'Set-Cookie': cookie });
   }
+  // Used by the installer and external health monitors; it must not require
+  // an interactive browser session.
+  if (request.method === 'GET' && url.pathname === '/api/health') {
+    return sendJson(response, 200, { ok: true, service: 'Connecso Outbound Audit', version: '2.1' });
+  }
 
   if (!authorized(request)) {
     if (request.method === 'GET' && !url.pathname.startsWith('/api/')) return redirect(response, '/login');
@@ -762,15 +767,6 @@ async function route(request, response) {
     response.writeHead(200, { 'Content-Length': body.length, 'Cache-Control': 'no-cache, must-revalidate' });
     response.end(body);
     return;
-  }
-  if (request.method === 'GET' && url.pathname === '/api/health') {
-    return sendJson(response, 200, { ok: true, service: 'Connecso Outbound Audit', version: '2.1' });
-  }
-  if (request.method === 'GET' && url.pathname === '/api/services') {
-    return sendJson(response, 200, {
-      groups: SERVICE_GROUPS,
-      services: SERVICES.map(({ id, group, name, icon, host }) => ({ id, group, name, icon, host })),
-    });
   }
   const interactiveMatch = url.pathname.match(/^\/api\/interactive\/([A-Za-z0-9_-]+)$/);
   if (request.method === 'GET' && interactiveMatch) {
@@ -855,38 +851,6 @@ async function route(request, response) {
     const offset = 0;
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
     return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds }));
-  }
-  const serviceCheckMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/services$/);
-  if (request.method === 'POST' && serviceCheckMatch) {
-    if (activeInteractiveId) return fail(response, 409, 'یک بررسی تعاملی دیگر در حال اجراست.');
-    const job = jobs.get(serviceCheckMatch[1]);
-    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
-    let input;
-    try { input = JSON.parse(await readBody(request)); }
-    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'درخواست معتبر نیست.'); }
-    const uri = String(input.uri || '');
-    const item = job.results.find((result) => result.ok && result.uri === uri);
-    const [config] = parseSubscription(uri);
-    if (!item || !config) return fail(response, 404, 'این کانفیگ در نتایج آماده پیدا نشد.');
-    const task = startInteractiveTask('services', job, item, config);
-    return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'بررسی تعاملی دیگری در حال اجراست.');
-  }
-  const monitorStartMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/monitor$/);
-  if (request.method === 'POST' && monitorStartMatch) {
-    if (activeInteractiveId) return fail(response, 409, 'ابتدا بررسی تعاملی جاری را متوقف کن.');
-    const job = jobs.get(monitorStartMatch[1]);
-    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
-    let input;
-    try { input = JSON.parse(await readBody(request)); }
-    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'درخواست معتبر نیست.'); }
-    const uri = String(input.uri || '');
-    const serviceId = String(input.serviceId || '');
-    const item = job.results.find((result) => result.ok && result.uri === uri);
-    const [config] = parseSubscription(uri);
-    if (!item || !config) return fail(response, 404, 'این کانفیگ در نتایج آماده پیدا نشد.');
-    if (!SERVICES.some((service) => service.id === serviceId)) return fail(response, 400, 'سرویس انتخاب‌شده معتبر نیست.');
-    const task = startInteractiveTask('monitor', job, item, config, { serviceId });
-    return task ? sendJson(response, 202, interactiveSummary(task)) : fail(response, 409, 'بررسی تعاملی دیگری در حال اجراست.');
   }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {

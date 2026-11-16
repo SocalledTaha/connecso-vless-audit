@@ -510,7 +510,14 @@ EOF
 chmod 0755 /etc/letsencrypt/renewal-hooks/{pre,post,deploy}/20-vless-audit
 
 if command -v systemd-analyze >/dev/null 2>&1; then
-  systemd-analyze verify "$SERVICE_FILE" /etc/systemd/system/vless-audit-self-update.path /etc/systemd/system/vless-audit-self-update.service
+  VERIFY_LOG="$(mktemp)"
+  TEMP_DIRS+=("$VERIFY_LOG")
+  if ! systemd-analyze verify "$SERVICE_FILE" /etc/systemd/system/vless-audit-self-update.path /etc/systemd/system/vless-audit-self-update.service >"$VERIFY_LOG" 2>&1; then
+    cat "$VERIFY_LOG" >&2
+    die 'One of the panel systemd units is invalid; the service was not restarted.'
+  fi
+  rm -f -- "$VERIFY_LOG"
+  TEMP_DIRS=()
 fi
 systemctl daemon-reload
 systemctl enable "$APP_NAME.service"
