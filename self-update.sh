@@ -107,7 +107,14 @@ branch="$(git -C "$PROJECT_DIR" branch --show-current)"
 stage="fetching GitHub source"
 write_status downloading "" updateDownloading
 git -C "$PROJECT_DIR" fetch --prune origin main >/dev/null 2>&1 || fail "Could not fetch the latest GitHub version."
-git -C "$PROJECT_DIR" merge --ff-only origin/main >/dev/null 2>&1 || fail "The local checkout cannot be updated safely."
+[[ -z "$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null)" ]] || fail "Local source changes were found; update cancelled to protect them."
+current_revision="$(git -C "$PROJECT_DIR" rev-parse HEAD 2>/dev/null)" || fail "Could not read the installed source revision."
+target_revision="$(git -C "$PROJECT_DIR" rev-parse origin/main 2>/dev/null)" || fail "Could not read the GitHub source revision."
+if [[ "$current_revision" != "$target_revision" ]]; then
+  backup_ref="backup/pre-update-$(date -u +%Y%m%dT%H%M%SZ)"
+  git -C "$PROJECT_DIR" update-ref "refs/heads/$backup_ref" "$current_revision" || fail "Could not preserve the previous source revision."
+  git -C "$PROJECT_DIR" reset --hard origin/main >/dev/null 2>&1 || fail "Could not switch the source checkout to the GitHub version."
+fi
 
 stage="backing up and installing panel files"
 write_status installing "" updatePreparing

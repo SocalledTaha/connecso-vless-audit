@@ -257,7 +257,20 @@ update_panel() {
     return 1
   }
   say "Updating project files from GitHub in $PROJECT_DIR …"
-  git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" pull --ff-only origin main || { fail 'Git update failed; panel files were left unchanged.'; return 1; }
+  if [[ -n "$(git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" status --porcelain)" ]]; then
+    fail 'Local project-source changes were found; update cancelled to protect them.'
+    return 1
+  fi
+  git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" fetch --prune origin main || { fail 'Could not fetch the GitHub version; panel files were left unchanged.'; return 1; }
+  local current target backup_ref
+  current="$(git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" rev-parse HEAD)"
+  target="$(git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" rev-parse origin/main)"
+  if [[ "$current" != "$target" ]]; then
+    backup_ref="backup/pre-update-$(date -u +%Y%m%dT%H%M%SZ)"
+    git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" update-ref "refs/heads/$backup_ref" "$current" || { fail 'Could not preserve the current source revision; update cancelled.'; return 1; }
+    git -c safe.directory="$PROJECT_DIR" -C "$PROJECT_DIR" reset --hard origin/main || { fail 'Could not switch project files to the GitHub version.'; return 1; }
+    say "Saved the previous source revision as $backup_ref."
+  fi
   VLESS_AUDIT_APPLY_UPDATE=1 bash "$PROJECT_DIR/install.sh"
 }
 
