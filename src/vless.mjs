@@ -1,5 +1,23 @@
 import { isIP } from 'node:net';
 
+const XRAY_SHADOWSOCKS_METHODS = new Set([
+  '2022-blake3-aes-128-gcm', '2022-blake3-aes-256-gcm', '2022-blake3-chacha20-poly1305',
+  'aes-128-gcm', 'aes-256-gcm', 'chacha20-poly1305', 'chacha20-ietf-poly1305',
+  'xchacha20-poly1305', 'xchacha20-ietf-poly1305',
+]);
+
+function shadowsocksIssue(config) {
+  const outbound = config.outbound;
+  const server = outbound?.settings?.servers?.[0] || {};
+  const method = String(config.params?.method || server.method || '').trim().toLowerCase();
+  const plugin = config.params?.plugin || server.plugin || server.pluginOpts || server.plugin_opts;
+  if (plugin) return 'این لینک Shadowsocks از plugin استفاده می‌کند و Xray آن را مستقیم پشتیبانی نمی‌کند.';
+  if (!XRAY_SHADOWSOCKS_METHODS.has(method)) {
+    return `روش رمزنگاری Shadowsocks «${method || 'نامشخص'}» در Xray پشتیبانی نمی‌شود.`;
+  }
+  return '';
+}
+
 function ipv4Number(address) {
   const parts = address.split('.').map(Number);
   if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
@@ -223,11 +241,14 @@ function transportLabel(network) {
 }
 
 function buildOutbound(config, tag) {
+  if (config.protocol === 'shadowsocks') {
+    const issue = shadowsocksIssue(config);
+    if (issue) throw new Error(issue);
+  }
   if (config.outbound) return { ...structuredClone(config.outbound), tag: String(tag || config.outbound.tag || config.name) };
   const q = config.params || {};
   const outboundTag = String(tag || config.name || `${config.host}:${config.port}`);
   if (config.protocol === 'shadowsocks') {
-    if (q.plugin) throw new Error('این لینک Shadowsocks از plugin استفاده می‌کند و برای تست مستقیم با Xray پشتیبانی نمی‌شود.');
     return { tag:outboundTag, protocol:'shadowsocks', settings:{ servers:[{ address:config.host, port:config.port, method:q.method, password:q.password }] } };
   }
   if (config.protocol === 'hysteria2') {
