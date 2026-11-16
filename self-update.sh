@@ -115,6 +115,13 @@ backup="$(mktemp /var/lib/vless-audit/panel-update-backup.XXXXXX.tar.gz)"
 backup_paths=(server.mjs src public)
 for item in package.json package-lock.json node_modules; do [[ -e "$APP_DIR/$item" ]] && backup_paths+=("$item"); done
 tar -C "$APP_DIR" -czf "$backup" "${backup_paths[@]}" 2>/dev/null || fail "Could not create a rollback copy."
+dependencies_changed=1
+if [[ -s "$APP_DIR/package-lock.json" && -s "$APP_DIR/package.json" \
+  && -f "$APP_DIR/node_modules/maxmind/package.json" ]] \
+  && cmp -s "$PROJECT_DIR/package-lock.json" "$APP_DIR/package-lock.json" \
+  && cmp -s "$PROJECT_DIR/package.json" "$APP_DIR/package.json"; then
+  dependencies_changed=0
+fi
 install -d -o root -g "$APP_NAME" -m 0750 "$APP_DIR" "$APP_DIR/src" "$APP_DIR/public" "$APP_DIR/public/assets"
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/server.mjs" "$APP_DIR/server.mjs"
 install -o root -g "$APP_NAME" -m 0640 "$PROJECT_DIR/package.json" "$APP_DIR/package.json"
@@ -132,6 +139,7 @@ if [[ -d "$PROJECT_DIR/public/assets" ]]; then
 fi
 install -d -o root -g root -m 0755 /usr/local/lib/connecso-tools
 install -o root -g root -m 0755 "$PROJECT_DIR/self-update.sh" /usr/local/lib/connecso-tools/self-update.sh
+if (( dependencies_changed )); then
 stage="installing panel dependencies"
 write_status installing "" updateDependencies
 NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
@@ -168,6 +176,10 @@ fi
 chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
 find "$APP_DIR/node_modules" -type d -exec chmod 0750 {} +
 find "$APP_DIR/node_modules" -type f -exec chmod 0640 {} +
+else
+  stage="dependencies unchanged; skipping installation"
+  write_status installing "" updateDependenciesSkipped
+fi
 
 stage="restarting and checking panel service"
 write_status restarting "" updateRestarting
