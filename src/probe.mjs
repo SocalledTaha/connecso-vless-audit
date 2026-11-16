@@ -28,12 +28,12 @@ export function calculateXrayWorkerPlan(availableBytes, totalBytes) {
   const MiB = 1024 * 1024;
   const total = Math.max(MiB, Number(totalBytes) || MiB);
   const available = Math.max(0, Number(availableBytes) || 0);
-  // Reserve a proportional slice for the OS and panel, then budget each
-  // additional Xray process conservatively. A large fixed reserve prevented
-  // 2–3 workers from ever being selected on ordinary 1–2 GiB VPSes.
-  const reserved = Math.min(320 * MiB, Math.max(160 * MiB, total * 0.20));
-  const budgetPerWorker = 128 * MiB;
-  const count = Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker)));
+  // Keep at least 200 MiB available for the OS and panel. Budget each
+  // additional Xray process at 250 MiB, then use every full worker budget
+  // supported by the remaining memory and pending route count.
+  const reserved = 200 * MiB;
+  const budgetPerWorker = 250 * MiB;
+  const count = Math.floor(Math.max(0, available - reserved) / budgetPerWorker);
   return {
     count,
     availableMiB: Math.round(available / MiB),

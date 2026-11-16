@@ -25,10 +25,41 @@ const AUTO_BATCH_SIZE = 10;
 const MAX_ROUTES_PER_XRAY = 10;
 const MAX_CONFIGS_PER_AUDIT = 2500;
 const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
-function filterProtocols(configs, ids) {
-  if (!Array.isArray(ids)) return configs;
-  const selected = new Set(ids.filter((id) => SUPPORTED_PROTOCOL_IDS.has(String(id).toLowerCase())).map((id) => String(id).toLowerCase()));
-  return configs.filter((config) => selected.has(config.protocol));
+const SUPPORTED_SECURITY_TYPES = new Set(['tls','reality','none','other']);
+const SUPPORTED_TRANSPORT_TYPES = new Set(['tcp','ws','grpc','xhttp','httpupgrade','http2','kcp','hysteria2','quic','wireguard','masque','tcpudp','other']);
+function cleanFilter(value, supported) {
+  if (!Array.isArray(value)) return [...supported];
+  return [...new Set(value.map((id) => String(id).toLowerCase()).filter((id) => supported.has(id)))];
+}
+function configSecurityType(config) {
+  const security = String(config.security || '').toLowerCase();
+  if (security === 'tls' || security === 'reality') return security;
+  return !security || security === 'none' ? 'none' : 'other';
+}
+function configTransportType(config) {
+  const transport = String(config.transport || '').toLowerCase();
+  if (transport.includes('xhttp') || transport.includes('splithttp')) return 'xhttp';
+  if (transport.includes('httpupgrade')) return 'httpupgrade';
+  if (transport.includes('grpc')) return 'grpc';
+  if (/\bws\b|websocket/.test(transport)) return 'ws';
+  if (transport === 'h2' || transport.includes('http/2') || transport === 'http2') return 'http2';
+  if (transport.includes('kcp')) return 'kcp';
+  if (transport.includes('wireguard')) return 'wireguard';
+  if (transport.includes('masque')) return 'masque';
+  if (transport.includes('hysteria')) return 'hysteria2';
+  if (transport.includes('quic')) return 'quic';
+  if (transport === 'http') return 'http2';
+  if (transport.includes('tcp + udp')) return 'tcpudp';
+  if (transport.includes('tcp') || transport.includes('raw')) return 'tcp';
+  return 'other';
+}
+function filterConfigs(configs, filters = {}) {
+  const protocols = new Set(cleanFilter(filters.protocolIds, SUPPORTED_PROTOCOL_IDS));
+  const securityTypes = new Set(cleanFilter(filters.securityTypes, SUPPORTED_SECURITY_TYPES));
+  const transportTypes = new Set(cleanFilter(filters.transportTypes, SUPPORTED_TRANSPORT_TYPES));
+  return configs.filter((config) => protocols.has(config.protocol)
+    && securityTypes.has(configSecurityType(config))
+    && transportTypes.has(configTransportType(config)));
 }
 const jobs = await loadJobs(RESULTS);
 const MAX_RECOVERY_RETRIES = 5;
@@ -175,6 +206,9 @@ function summary(job) {
     available: job.available,
     batchSize: AUTO_BATCH_SIZE,
     workerCount: Number(job.workerCount) || 0,
+    protocolIds: Array.isArray(job.protocolIds) ? job.protocolIds : [...SUPPORTED_PROTOCOL_IDS],
+    securityTypes: cleanFilter(job.securityTypes, SUPPORTED_SECURITY_TYPES),
+    transportTypes: cleanFilter(job.transportTypes, SUPPORTED_TRANSPORT_TYPES),
     done: job.done,
     progressDone: Math.max(Number(job.done) || 0, Number(job.progressDone) || 0),
     success: job.success,
@@ -208,6 +242,8 @@ async function beginJob(configs, offset, subscriptionUrl = '', message = '', sca
     checkExit: false,
     serviceIds: [],
     protocolIds: Array.isArray(scanOptions.protocolIds) ? scanOptions.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)) : [...SUPPORTED_PROTOCOL_IDS],
+    securityTypes: cleanFilter(scanOptions.securityTypes, SUPPORTED_SECURITY_TYPES),
+    transportTypes: cleanFilter(scanOptions.transportTypes, SUPPORTED_TRANSPORT_TYPES),
     done: 0,
     success: 0,
     finished: selected.length === 0,
@@ -270,7 +306,7 @@ async function resumeJob(job) {
   let configs = Array.isArray(job.scanConfigs) && job.scanConfigs.length ? job.scanConfigs : null;
   if (!configs && job.subscriptionUrl) {
     const text = await fetchSubscription(job.subscriptionUrl);
-    configs = filterProtocols(parseSubscription(text), job.protocolIds || [...SUPPORTED_PROTOCOL_IDS])
+    configs = filterConfigs(parseSubscription(text), job)
       .slice(job.offset || 0, (job.offset || 0) + MAX_CONFIGS_PER_AUDIT);
   }
   if (!configs?.length) throw new Error('دادهٔ لازم برای ادامهٔ این بررسی در سابقه پیدا نشد.');
@@ -326,8 +362,11 @@ async function runJob(job, configs, operation = null) {
     job.progressDone = liveChecked.size;
     const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
     const workerPlan = await recommendedXrayWorkerPlan();
-    const workerLimit = Math.max(1, Math.min(3, Number(job.workerLimit) || 3));
-    const workerCount = Math.min(workerPlan.count, workerLimit, Math.max(1, remaining.length));
+    if (remaining.length && workerPlan.count < 1) {
+      throw Object.assign(new Error(`رم آزاد کافی نیست؛ حداقل ${workerPlan.reserveMiB + workerPlan.workerBudgetMiB} مگابایت لازم است تا ۲۰۰ مگابایت برای سیستم باقی بماند.`), { code:'XRAY_MEMORY' });
+    }
+    const workerLimit = Number(job.workerLimit) > 0 ? Number(job.workerLimit) : workerPlan.count;
+    const workerCount = Math.min(workerPlan.count, workerLimit, remaining.length);
     job.workerCount = workerCount;
     await saveJob(RESULTS, job);
     console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending (RAM available ${workerPlan.availableMiB} MiB; reserve ${workerPlan.reserveMiB} MiB; ${workerPlan.workerBudgetMiB} MiB per worker).`);
@@ -402,7 +441,7 @@ async function runJob(job, configs, operation = null) {
       job.workerLimit = Math.max(1, Number(job.workerCount) - 1);
       console.warn(`Audit ${job.id}: reducing Xray worker limit to ${job.workerLimit} after a worker startup failure.`);
     }
-    if (job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
+    if (error.code !== 'XRAY_MEMORY' && job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
       job.recoveryRetries = Number(job.recoveryRetries || 0) + 1;
       job.finished = false;
       job.interrupted = false;
@@ -447,7 +486,7 @@ async function resumePendingJobs() {
     if ((!configs || !configs.length) && job.subscriptionUrl) {
       try {
         const text = await fetchSubscription(job.subscriptionUrl);
-        configs = filterProtocols(parseSubscription(text), job.protocolIds || [...SUPPORTED_PROTOCOL_IDS])
+        configs = filterConfigs(parseSubscription(text), job)
           .slice(job.offset || 0, (job.offset || 0) + MAX_CONFIGS_PER_AUDIT);
         job.scanConfigs = configs;
         job.total = configs.length;
@@ -841,10 +880,11 @@ async function route(request, response) {
     let input = {};
     try { input = JSON.parse(await readBody(request)); }
     catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'تنظیمات اجرای دوباره معتبر نیست.'); }
-    const protocolIds = Array.isArray(input.protocolIds)
-      ? [...new Set(input.protocolIds.map((id) => String(id).toLowerCase()).filter((id) => SUPPORTED_PROTOCOL_IDS.has(id)))]
-      : [...SUPPORTED_PROTOCOL_IDS];
+    const protocolIds = cleanFilter(Object.hasOwn(input, 'protocolIds') ? input.protocolIds : previous.protocolIds, SUPPORTED_PROTOCOL_IDS);
     if (!protocolIds.length) return fail(response, 400, 'حداقل یک پروتکل را برای اجرای دوباره انتخاب کن.');
+    const securityTypes = cleanFilter(Object.hasOwn(input, 'securityTypes') ? input.securityTypes : previous.securityTypes, SUPPORTED_SECURITY_TYPES);
+    const transportTypes = cleanFilter(Object.hasOwn(input, 'transportTypes') ? input.transportTypes : previous.transportTypes, SUPPORTED_TRANSPORT_TYPES);
+    if (!securityTypes.length || !transportTypes.length) return fail(response, 400, 'حداقل یک نوع امنیت و یک نوع انتقال را انتخاب کن.');
     const suppliedUrl = String(input.subscriptionUrl || '').trim();
     const subscriptionUrl = suppliedUrl || previous.subscriptionUrl || '';
     let text;
@@ -856,11 +896,11 @@ async function route(request, response) {
       text = previous.results.map((item) => item.uri).filter(Boolean).join('\n');
     }
     const parsedConfigs = parseSubscription(text);
-    const configs = filterProtocols(parsedConfigs, protocolIds);
+    const configs = filterConfigs(parsedConfigs, { protocolIds, securityTypes, transportTypes });
     if (!configs.length && !subscriptionUrl) return fail(response, 400, 'در ورودی ذخیره‌شده کانفیگ پشتیبانی‌شده‌ای پیدا نشد.');
     const offset = 0;
     const message = configs.length ? '' : parsedConfigs.length ? 'در این اشتراک از پروتکل‌های انتخاب‌شده کانفیگی پیدا نشد.' : 'فهرست دریافت شد، اما کانفیگ سازگار برای بررسی در آن نبود.';
-    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: false, serviceIds: [], protocolIds, securityTypes, transportTypes }));
   }
   const pingAllMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/results\/ping-all$/);
   if (request.method === 'POST' && pingAllMatch) {
@@ -948,13 +988,16 @@ async function route(request, response) {
       }
     }
     const parsedConfigs = parseSubscription(text);
-    const protocolIds = Array.isArray(input.protocolIds) ? input.protocolIds.filter((id) => SUPPORTED_PROTOCOL_IDS.has(String(id).toLowerCase())).map((id) => String(id).toLowerCase()) : [...SUPPORTED_PROTOCOL_IDS];
-    const configs = filterProtocols(parsedConfigs, protocolIds);
+    const protocolIds = cleanFilter(input.protocolIds, SUPPORTED_PROTOCOL_IDS);
+    const securityTypes = cleanFilter(input.securityTypes, SUPPORTED_SECURITY_TYPES);
+    const transportTypes = cleanFilter(input.transportTypes, SUPPORTED_TRANSPORT_TYPES);
+    if (!protocolIds.length || !securityTypes.length || !transportTypes.length) return fail(response, 400, 'حداقل یک پروتکل، نوع امنیت و نوع انتقال را انتخاب کن.');
+    const configs = filterConfigs(parsedConfigs, { protocolIds, securityTypes, transportTypes });
     const subscriptionUrl = input.subscriptionUrl ? String(input.subscriptionUrl).trim() : '';
     if (!parsedConfigs.length && !subscriptionUrl) return fail(response, 400, 'کانفیگ پشتیبانی‌شده‌ای در ورودی پیدا نشد.');
     const offset = Math.max(0, Number.parseInt(input.offset || '0', 10) || 0);
     if (configs.length && offset >= configs.length) return fail(response, 400, 'شمارهٔ شروع از تعداد کانفیگ‌های انتخاب‌شده بیشتر است.');
-    const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected protocols.' : 'No supported configs were found in this subscription.';
+    const message = configs.length ? '' : parsedConfigs.length ? 'No configs match the selected filters.' : 'No supported configs were found in this subscription.';
     const serviceIds = [];
     if (activeJob) {
       if (['audit', 'ping-all'].includes(activeOperation?.kind) && (input.replaceCheck === true || input.replacePingAll === true)) {
@@ -968,7 +1011,7 @@ async function route(request, response) {
         return fail(response, 409, 'یک بررسی دیگر در حال اجراست. پس از پایان آن دوباره تلاش کن.');
       }
     }
-    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds }));
+    return sendJson(response, 202, await beginJob(configs, offset, subscriptionUrl, message, { checkExit: input.checkExit !== false, serviceIds, protocolIds, securityTypes, transportTypes }));
   }
   return fail(response, 404, 'این مسیر پیدا نشد.');
 }

@@ -18,8 +18,10 @@ export async function loadJobs(directory) {
       job.tags = Array.isArray(job.tags) ? job.tags : [];
       job.favorite = Boolean(job.favorite);
       job.recoveryRetries = Math.max(0, Math.min(5, Number.parseInt(job.recoveryRetries, 10) || 0));
-      job.workerLimit = Math.max(1, Math.min(3, Number.parseInt(job.workerLimit, 10) || 3));
+      job.workerLimit = Math.max(0, Number.parseInt(job.workerLimit, 10) || 0);
       job.protocolIds = Array.isArray(job.protocolIds) ? job.protocolIds : null;
+      job.securityTypes = Array.isArray(job.securityTypes) ? job.securityTypes : null;
+      job.transportTypes = Array.isArray(job.transportTypes) ? job.transportTypes : null;
       for (const result of job.results) {
         if (result.ok && !result.outbound && result.uri) {
           const [config] = parseSubscription(result.uri);
@@ -93,10 +95,12 @@ async function writeSavedJob(directory, job) {
     favorite: Boolean(job.favorite),
     total: job.total, available: job.available, offset: job.offset,
     batchSize: 10, workerCount: Number(job.workerCount) || 0,
-    workerLimit: Math.max(1, Math.min(3, Number.parseInt(job.workerLimit, 10) || 3)),
+    workerLimit: Math.max(0, Number.parseInt(job.workerLimit, 10) || 0),
     checkExit: job.checkExit !== false,
     serviceIds: Array.isArray(job.serviceIds) ? job.serviceIds : ['gemini', 'youtube', 'instagram', 'telegram'],
     protocolIds: Array.isArray(job.protocolIds) ? job.protocolIds : undefined,
+    securityTypes: Array.isArray(job.securityTypes) ? job.securityTypes : undefined,
+    transportTypes: Array.isArray(job.transportTypes) ? job.transportTypes : undefined,
     ...(job.subscriptionUrl ? { subscriptionUrl: job.subscriptionUrl } : {}),
     done: job.done, success: job.success, finished: job.finished,
     ...(Array.isArray(job.checkedIndexes) ? { checkedIndexes: [...new Set(job.checkedIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < job.total))].sort((a, b) => a - b) } : {}),
