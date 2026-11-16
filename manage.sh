@@ -6,6 +6,7 @@ APP_DIR="/opt/vless-audit"
 CONFIG_DIR="/etc/vless-audit"
 DATA_DIR="/var/lib/vless-audit"
 STATE_FILE="$CONFIG_DIR/install-state.env"
+LEGACY_STATE_FILE="$DATA_DIR/install-state.env"
 ENV_FILE="$CONFIG_DIR/panel.env"
 SERVICE_FILE="/etc/systemd/system/$APP_NAME.service"
 HOOK_DIR="/etc/letsencrypt/renewal-hooks"
@@ -27,6 +28,12 @@ port_listening() { ss -H -ltn "sport = :$1" 2>/dev/null | grep -q .; }
 port_listeners() { ss -H -ltnp "sport = :$1" 2>/dev/null || true; }
 
 [[ "${EUID:-$(id -u)}" -eq 0 ]] || { fail 'Run ConnecsoTools with sudo.'; exit 1; }
+if [[ ! -e "$STATE_FILE" && -e "$LEGACY_STATE_FILE" ]]; then
+  [[ -f "$LEGACY_STATE_FILE" && ! -L "$LEGACY_STATE_FILE" && "$(stat -c '%u:%a' "$LEGACY_STATE_FILE" 2>/dev/null || true)" == '0:600' ]] \
+    || { fail 'Legacy installer state permissions are unsafe; refusing to load it as root.'; exit 1; }
+  install -d -o root -g root -m 0700 "$CONFIG_DIR"
+  install -o root -g root -m 0600 "$LEGACY_STATE_FILE" "$STATE_FILE"
+fi
 [[ -r "$STATE_FILE" && -r "$ENV_FILE" ]] || { fail 'The panel installation or its state files are missing.'; exit 1; }
 # These files are created by the root installer and mode-restricted.
 # shellcheck disable=SC1090

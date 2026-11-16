@@ -6,6 +6,7 @@ APP_DIR="/opt/vless-audit"
 DATA_DIR="/var/lib/vless-audit"
 CONFIG_DIR="/etc/vless-audit"
 STATE_FILE="$CONFIG_DIR/install-state.env"
+LEGACY_STATE_FILE="$DATA_DIR/install-state.env"
 REQUEST="$DATA_DIR/results/update-request.json"
 STATUS="$DATA_DIR/results/update-status.json"
 LOCK="$DATA_DIR/update.lock"
@@ -70,11 +71,33 @@ trap on_exit EXIT
 
 stage="checking installation"
 write_status checking "" updateChecking
-[[ -r "$STATE_FILE" ]] || fail "Installer state is missing."
-# The installer writes this root-owned file with shell-escaped values.
-# shellcheck disable=SC1090
-source "$STATE_FILE"
-PROJECT_DIR="${PROJECT_DIR:-}"
+if [[ -e "$STATE_FILE" || -L "$STATE_FILE" ]]; then
+  [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" && "$(stat -c '%u:%a' "$STATE_FILE" 2>/dev/null || true)" == '0:600' ]] \
+    || fail "Installer state permissions are unsafe; refusing to load it as root."
+  # The installer writes this root-owned file with shell-escaped values.
+  # shellcheck disable=SC1090
+  source "$STATE_FILE"
+elif [[ -e "$LEGACY_STATE_FILE" || -L "$LEGACY_STATE_FILE" ]]; then
+  [[ -f "$LEGACY_STATE_FILE" && ! -L "$LEGACY_STATE_FILE" && "$(stat -c '%u:%a' "$LEGACY_STATE_FILE" 2>/dev/null || true)" == '0:600' ]] \
+    || fail "Legacy installer state permissions are unsafe; refusing to load it as root."
+  # Older releases stored the same root-owned, shell-escaped state under DATA_DIR.
+  # shellcheck disable=SC1090
+  source "$LEGACY_STATE_FILE"
+else
+  # The updater only needs the trusted source checkout and Node runtime. Recover
+  # those from the installer's stable locations when state was never migrated.
+  PROJECT_DIR="/opt/vless-audit/project-source"
+fi
+PROJECT_DIR="${PROJECT_DIR:-/opt/vless-audit/project-source}"
+if [[ -z "${NODE_BIN:-}" || ! -x "${NODE_BIN:-/nonexistent}" ]]; then
+  NODE_BIN="$(command -v node 2>/dev/null || true)"
+fi
+if [[ -z "${NODE_BIN:-}" || ! -x "$NODE_BIN" ]]; then
+  for candidate in "$APP_DIR"/runtime/node-*/bin/node; do
+    if [[ -x "$candidate" ]]; then NODE_BIN="$candidate"; break; fi
+  done
+fi
+[[ -n "${NODE_BIN:-}" && -x "$NODE_BIN" ]] || fail "Could not locate the installed Node.js runtime. Rerun the installer to repair runtime settings."
 [[ -n "$PROJECT_DIR" && -d "$PROJECT_DIR/.git" ]] || fail "GitHub source checkout was not found."
 [[ "$(git -C "$PROJECT_DIR" remote get-url origin 2>/dev/null || true)" =~ ^(https://github\.com/SocalledTaha/connecso-vless-audit\.git|git@github\.com:SocalledTaha/connecso-vless-audit\.git)$ ]] || fail "The configured source is not the expected GitHub repository."
 [[ -z "$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null)" ]] || fail "Local source changes were found; update cancelled to protect them."

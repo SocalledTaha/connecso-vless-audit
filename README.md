@@ -52,6 +52,15 @@ After installation, enter `ConnecsoTools` (any letter case) or `CTS`/`cts` to op
 
 The panel also has an **Update** button for installing the latest GitHub version. It runs in the background, keeps saved audits and credentials, restarts only this panel, and reloads the page when ready. Each audit can process up to 2,500 configurations; results are saved in batches, so you can close the browser and return to History later.
 
+If an older installation shows `Update failed: Installer state is missing`, refresh its root-owned update helper once, then press **Update** again:
+
+```bash
+sudo curl -fsSL https://raw.githubusercontent.com/SocalledTaha/connecso-vless-audit/main/self-update.sh -o /usr/local/lib/connecso-tools/self-update.sh
+sudo chmod 0755 /usr/local/lib/connecso-tools/self-update.sh
+```
+
+The refreshed helper also supports legacy installer state locations and can recover the source checkout and Node.js runtime from their standard install paths.
+
 ## 🔐 Data and security
 - Subscription URLs must use HTTPS and resolve to public addresses; local/private destinations are rejected.
 - Saved audits, labels, favorite flags, tags, and installer state are kept under `/var/lib/vless-audit/`. Audit records also contain the submitted subscription URL when one was used; protect server access and backups accordingly.
