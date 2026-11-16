@@ -262,6 +262,21 @@ async function loadHistory() {
     elements.history.querySelectorAll('.history-card').forEach((card, index) => {
       const status = card.querySelector('.history-meta small');
       if (status && items[index]) status.dataset.historyProgress = items[index].id;
+      const title=card.querySelector('.history-meta strong');if(title)title.textContent=title.textContent.replace(/^★\s*/, '');
+      const actions=card.querySelector('.history-actions');
+      if(actions){
+        const top=document.createElement('div');top.className='history-actions-top';
+        const footer=document.createElement('div');footer.className='history-actions-footer';
+        const primary=document.createElement('div');primary.className='history-action-primary';
+        const secondary=document.createElement('div');secondary.className='history-action-secondary';
+        for(const selector of ['[data-open-job]','[data-copy-subscription]','.favorite-history']){const button=actions.querySelector(selector);if(button)top.append(button);}
+        for(const selector of ['.rescan-history','.resume-history']){const button=actions.querySelector(selector);if(button)primary.append(button);}
+        for(const selector of ['[data-edit-meta]','.delete-history']){const button=actions.querySelector(selector);if(button)secondary.append(button);}
+        if(primary.childElementCount)footer.append(primary);
+        if(secondary.childElementCount)footer.append(secondary);
+        actions.replaceWith(top);
+        card.querySelector('.history-card-main')?.after(footer);
+      }
     });
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
 }

@@ -300,3 +300,30 @@
   .result-item.route-card>.security-tag{grid-column:2/4!important;grid-row:4!important}
   .result-item.route-card>.connection-actions{grid-column:1/-1!important;grid-row:5!important}
 }
+
+/* Keep history actions compact and in the same predictable positions. */
+.history-card{min-width:0}
+.history-card-main{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:14px 18px}
+.history-meta{min-width:0}
+.history-meta strong{white-space:normal;overflow-wrap:anywhere}
+.history-actions-top{display:flex;align-items:center;justify-content:flex-end;gap:7px;min-width:0}
+.history-actions-top .open-history{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:6px 11px;font-size:11px;white-space:nowrap}
+.history-actions-top .favorite-history{width:36px;height:36px;min-width:36px;min-height:36px;padding:0!important;border-radius:9px;font-size:17px!important;line-height:1}
+.history-actions-top .favorite-history.is-favorite{color:#b77905!important;background:#fff4cf!important;border-color:#e4bd55!important}
+.history-actions-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;margin-top:13px;padding-top:11px;border-top:1px solid var(--line);direction:ltr}
+.history-action-primary,.history-action-secondary{display:flex;align-items:center;gap:7px;min-width:0}
+.history-action-secondary{margin-inline-start:auto}
+.history-actions-footer .open-history{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:36px;padding:6px 11px;font-size:11px;white-space:nowrap}
+.history-actions-footer .rescan-history{color:var(--accent-2)}
+.history-actions-footer .resume-history{color:var(--good)}
+.history-actions-footer .delete-history{gap:6px;color:var(--bad)}
+.history-actions-footer .delete-history::after{content:attr(title)}
+.history-actions-footer .delete-history svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.history-actions-footer .delete-history:hover{background:color-mix(in srgb,var(--bad) 9%,var(--surface));border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
+@media(max-width:700px){
+  .history-card-main{grid-template-columns:minmax(0,1fr);gap:10px}
+  .history-actions-top{justify-content:flex-start;flex-wrap:wrap}
+  .history-actions-footer{align-items:flex-start;flex-wrap:wrap}
+  .history-action-primary{margin-inline-end:auto}
+  .history-action-secondary{margin-inline-start:auto;flex-wrap:wrap;justify-content:flex-end}
+}
