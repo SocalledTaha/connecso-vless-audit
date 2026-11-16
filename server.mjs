@@ -861,6 +861,22 @@ async function route(request, response) {
     operation.controller.abort(new Error('اسکن با درخواست کاربر متوقف شد.'));
     return sendJson(response, 202, { ok: true, stopping: true, id: auditStopMatch[1] });
   }
+  const deleteJobMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)$/);
+  if (request.method === 'DELETE' && deleteJobMatch) {
+    const id = deleteJobMatch[1];
+    const job = jobs.get(id);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    const liveTask = [...interactiveTasks.values()].some((task) => task.jobId === id && ['starting', 'running', 'stopping'].includes(task.status));
+    if (!job.finished || (activeOperation?.kind === 'audit' && activeOperation.jobId === id) || liveTask) {
+      return fail(response, 409, 'ابتدا بررسی در حال اجرا را متوقف کن؛ بعد می‌توانی آن را حذف کنی.');
+    }
+    for (const filename of [`${id}.json`, `${id}.scan.json`, `${id}.json.tmp`, `${id}.scan.json.tmp`]) {
+      try { await unlink(path.join(RESULTS, filename)); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    jobs.delete(id);
+    return sendJson(response, 200, { ok: true, id });
+  }
   const metadataMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/meta$/);
   if (request.method === 'PATCH' && metadataMatch) {
     const job = jobs.get(metadataMatch[1]);

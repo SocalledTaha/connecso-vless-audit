@@ -104,6 +104,9 @@
 .history-actions .favorite-history{width:100%;min-height:32px}
 .history-actions .rescan-history{color:var(--accent-2)}
 .history-actions .resume-history{color:var(--good)}
+.history-actions .delete-history{color:var(--bad);padding-inline:8px}
+.delete-history svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.history-actions .delete-history:hover{background:color-mix(in srgb,var(--bad) 9%,var(--surface));border-color:color-mix(in srgb,var(--bad) 45%,var(--line))}
 .history-card:has(.history-edit:not([hidden])),.history-card:has(.history-rescan-options:not([hidden])){grid-column:1/-1}
 .history-edit{grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:10px;margin-top:14px;padding-top:14px}
 .history-edit-actions{grid-column:1/-1}
