@@ -2,6 +2,8 @@ import https from 'node:https';
 import { readFile, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 import { parseSubscription } from './src/vless.mjs';
@@ -20,6 +22,7 @@ const PORT = Number(process.env.PORT || 3006);
 const HOST = process.env.HOST || '0.0.0.0';
 const PASSWORD = process.env.PANEL_PASSWORD || '';
 const MAX_BODY = 12_000_000;
+const execFileAsync = promisify(execFile);
 const CHUNK_SIZE = 100;
 const AUTO_BATCH_SIZE = 10;
 const MAX_ROUTES_PER_XRAY = 10;
@@ -766,7 +769,22 @@ async function route(request, response) {
     return redirect(response, '/login', { 'Set-Cookie': 'vless_audit_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict' });
   }
   if (request.method === 'GET' && url.pathname === '/api/update/status') {
-    try { return sendJson(response, 200, JSON.parse(await readFile(UPDATE_STATUS, 'utf8'))); }
+    try {
+      const status = JSON.parse(await readFile(UPDATE_STATUS, 'utf8'));
+      const active = ['queued','checking','downloading','installing','restarting'].includes(status.state);
+      const updatedAt = Date.parse(status.updatedAt || '');
+      if (active && Number.isFinite(updatedAt) && Date.now() - updatedAt > 30_000) {
+        try { await execFileAsync('/usr/bin/systemctl', ['is-active', '--quiet', 'vless-audit-self-update.service'], { timeout: 3000 }); }
+        catch {
+          status.state = 'failed';
+          status.error = `The updater stopped unexpectedly during ${status.message || status.state}. Retry the update from the panel or ConnecsoTools.`;
+          status.message = 'updateFailed';
+          status.updatedAt = new Date().toISOString();
+          await writeFile(UPDATE_STATUS, JSON.stringify(status), { mode: 0o640 }).catch(() => {});
+        }
+      }
+      return sendJson(response, 200, status);
+    }
     catch (error) { if (error.code === 'ENOENT') return sendJson(response, 200, { state: 'idle' }); throw error; }
   }
   const resumeMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/resume$/);

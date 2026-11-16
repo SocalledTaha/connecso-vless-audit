@@ -138,7 +138,12 @@ NODE_BIN="${NODE_BIN:-$(command -v node || true)}"
 NPM_BIN="$(dirname -- "$NODE_BIN")/npm"
 [[ -x "$NPM_BIN" ]] || NPM_BIN="$(command -v npm || true)"
 [[ -n "$NPM_BIN" ]] || fail "npm is required to install the local GeoIP reader."
-"$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=90000 &
+if command -v timeout >/dev/null 2>&1; then
+  timeout --foreground --signal=TERM --kill-after=10s 240s \
+    "$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=90000 &
+else
+  "$NODE_BIN" "$NPM_BIN" ci --prefix "$APP_DIR" --omit=dev --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=90000 &
+fi
 npm_pid=$!
 (
   while kill -0 "$npm_pid" 2>/dev/null; do
@@ -155,6 +160,9 @@ if (( npm_exit != 0 )); then
   rm -rf -- "$APP_DIR/node_modules"
   tar -C "$APP_DIR" -xzf "$backup"
   rm -f -- "$backup"
+  if (( npm_exit == 124 || npm_exit == 137 )); then
+    fail "Dependency installation exceeded 4 minutes; the previous panel files were restored. Check access to registry.npmjs.org and retry."
+  fi
   fail "Could not install the panel's GeoIP reader; the previous files were restored."
 fi
 chown -R root:"$APP_NAME" "$APP_DIR/node_modules"
