@@ -327,3 +327,15 @@
   .history-action-primary{margin-inline-end:auto}
   .history-action-secondary{margin-inline-start:auto;flex-wrap:wrap;justify-content:flex-end}
 }
+
+/* Pin the brand and utility controls to opposite ends of the full-width bar. */
+.topbar{width:100%;padding-inline:clamp(18px,3vw,52px)}
+.topbar .brand{flex:0 0 auto;margin-inline-end:auto}
+.topbar .header-actions{flex:0 0 auto;margin-inline-start:auto}
+.history-meta small{min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.history-error{grid-column:1/-1;max-width:100%;margin:4px 0 0;padding:8px 10px;border:1px solid color-mix(in srgb,var(--bad) 27%,var(--line));border-inline-start:3px solid var(--bad);border-radius:8px;background:color-mix(in srgb,var(--bad) 7%,var(--surface));color:var(--bad);font-size:11px;line-height:1.65;white-space:normal;overflow-wrap:anywhere;word-break:break-word;unicode-bidi:plaintext}
+.history-error[hidden]{display:none}
+@media(max-width:520px){
+  .topbar{height:auto;min-height:64px;padding:8px 12px;gap:8px;flex-wrap:wrap}
+  .topbar .header-actions{gap:5px}
+}
