@@ -49,7 +49,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${s} نتیجهٔ موفق · ${t} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
     resultsChunk:(a,b)=>`دریافت ${a} از ${b} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
-    noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص', progressReconnect:'ارتباط لحظه‌ای قطع شد؛ در حال تلاش دوباره برای دریافت پیشرفت…',
+    noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingAllProgress:(done,total)=>`پینگ ${number(done)} از ${number(total)}`, pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص', progressReconnect:'ارتباط لحظه‌ای قطع شد؛ در حال تلاش دوباره برای دریافت پیشرفت…',
     oldService:'بررسی نشده', reachable:'پاسخ موفق', unavailable:'پاسخ موفقی دریافت نشد', noReply:'بدون پاسخ', httpResponded:'پاسخ HTTP دریافت شد؛ سرور مقصد در دسترس است', httpResponseTime:'زمان کامل پاسخ HTTP', gameReachabilityOnly:'فقط دسترسی سایت؛ پینگ سرور بازی نیست', httpStatusIssue:'کد HTTP خطا/محدودیت است، نه خطای اتصال تونل', routeCheckFailed:'درخواست آزمون به مقصد نرسید', probeError_timeout:'مهلت پاسخ تمام شد', probeError_dns:'خطای DNS مقصد', probeError_tls:'خطای TLS', probeError_refused:'اتصال از سمت مقصد رد شد', probeError_network:'خطای شبکه یا مسیر', httpStatus:'HTTP', endpointPing:'پینگ مستقیم مقصد', endpointPingTip:'ICMP از سرور بررسی تا IP مقصد؛ ممکن است پاسخ ICMP بسته باشد.', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedCipher:'روش رمزنگاری Shadowsocks با Xray سازگار نیست', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
     allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${n} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', allSecurity:'همهٔ روش‌های امنیت', allTransports:'همهٔ روش‌های انتقال', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${number(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
@@ -85,7 +85,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${s} working results · ${t} configs checked · loaded in pages`,
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
-    noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country', progressReconnect:'Live connection lost; reconnecting to get progress…',
+    noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingAllProgress:(done,total)=>`Pinging ${number(done)} of ${number(total)}`, pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country', progressReconnect:'Live connection lost; reconnecting to get progress…',
     oldService:'Not checked', reachable:'Successful response', unavailable:'No successful HTTP response', noReply:'No response', httpResponded:'HTTP response received; destination server is reachable', httpResponseTime:'Full HTTP response time', gameReachabilityOnly:'Website reachability only; not a game-server ping', httpStatusIssue:'HTTP error/restriction code, not a tunnel connection error', routeCheckFailed:'Probe request did not reach the destination', probeError_timeout:'Request timed out', probeError_dns:'Destination DNS error', probeError_tls:'TLS error', probeError_refused:'Connection refused by destination', probeError_network:'Network or route error', httpStatus:'HTTP', endpointPing:'Direct endpoint ping', endpointPingTip:'ICMP from the audit server to the endpoint IP; ICMP may be blocked.', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedCipher:'This Shadowsocks cipher is not supported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
     allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', allSecurity:'All security', allTransports:'All transports', anyService:'Any service', selectionCount:(n)=>`${number(n)} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
@@ -117,7 +117,7 @@ Object.assign(dictionaries.en, {
 Object.assign(dictionaries.fa, { newAudit:'بررسی جدید', newAuditSubtitle:'مسیرها را بررسی کن و زمان پاسخ واقعی مقصد را مقایسه کن.', scanName:'نام بررسی', scanTags:'برچسب‌ها', optional:'اختیاری', scanNamePlaceholder:'مثلاً مسیرهای آخر هفته', scanTagsPlaceholder:'Iran, gaming, Reality', resultsShown:(shown,total)=>`${number(shown)} نمایش از ${number(total)}`, pingAll:'پینگ همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON' });
 Object.assign(dictionaries.en, { newAudit:'NEW AUDIT', newAuditSubtitle:'Check routes and compare real endpoint response times.', scanName:'Scan name', scanTags:'Tags', optional:'optional', scanNamePlaceholder:'For example, weekend routes', scanTagsPlaceholder:'Iran, gaming, Reality', resultsShown:(shown,total)=>`${number(shown)} of ${number(total)} shown`, pingAll:'Ping all', copyJson:'Copy JSON', downloadJson:'Download JSON' });
 const faNum = new Intl.NumberFormat('fa-IR');
-const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null };
+const state = { currentResults: [], currentJob: '', busy: false, busyKind: '', activityGeneration: 0, view: 'country', sortBy: 'rtt', selectedCountry: 'all', selectedUris: new Set(), visibleIndices: [], lang: localStorage.getItem('vless-audit-lang') || 'fa', lastJob: null, lastPingUri: '', interactiveId:'', interactiveKind:'', interactiveUri:'', interactiveProgress:null, deferPingSort:false, pingRouteOrder:null, pingCountryOrder:null };
 function t(key, ...args) { const value = dictionaries[state.lang][key] ?? dictionaries.fa[key] ?? key; return typeof value === 'function' ? value(...args) : value; }
 function number(value) { const numeric = Number(value); return Number.isFinite(numeric) ? (state.lang === 'fa' ? faNum.format(numeric) : new Intl.NumberFormat('en-US').format(numeric)) : (state.lang === 'fa' ? '۰' : '0'); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[char]); }
@@ -422,12 +422,15 @@ async function rerunPing(index, button) {
 async function rerunCountryPings(country, button) {
   const items=state.currentResults.filter((item)=>(country==='__all__'||(item.country||t('countryUnknown'))===country)&&item.ok&&item.uri);
   if(!items.length||state.interactiveId)return;
+  state.deferPingSort=true;
+  state.pingRouteOrder=new Map([...elements.countries.querySelectorAll('.route-card[data-uri]')].map((card,index)=>[card.dataset.uri,index]));
+  state.pingCountryOrder=new Map([...elements.countries.querySelectorAll('.country-card[data-country]')].map((card,index)=>[card.dataset.country,index]));
   const original=button.textContent;button.disabled=true;button.textContent=t('pingAllChecking');
   try{
     const data=await api('/api/jobs/'+encodeURIComponent(state.currentJob)+'/results/ping-all',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({uris:items.map(item=>item.uri)})});
-    await watchInteractive(data, { items });
+    await watchInteractive(data, { items, button });
   }catch(error){showError(error.message);}
-  finally{button.disabled=false;button.textContent=original;}
+  finally{state.deferPingSort=false;state.pingRouteOrder=null;state.pingCountryOrder=null;renderResults();button.disabled=false;button.textContent=original;}
 }
 function downloadAllJson(button) {
   const content=JSON.stringify(uniqueOutbounds(state.currentResults),null,2);
@@ -453,21 +456,30 @@ async function watchInteractive(task, options = {}) {
   state.interactiveId=task.id;state.interactiveKind=task.kind;state.interactiveUri=options.item?.uri||task.uri||'';
   if(options.items) state.interactiveEntries=options.items;
   try {
-    let current=task;
+    let current=task;let appliedDone=0;
     while(['starting','running','stopping'].includes(current.status)) {
       state.interactiveProgress={done:current.done,total:current.total};
+      if(current.kind==='ping-all'&&current.done>appliedDone){
+        const recent=current.recentResults||[];
+        if(current.done-appliedDone>recent.length) await reloadVisibleJobResults();
+        else for(const update of recent){const item=state.currentResults.find((entry)=>entry.uri===update.uri);if(item){item.endpointConnectMs=update.endpointConnectMs;item.pingCheck=update.pingCheck;}}
+        appliedDone=current.done;renderResults();
+        if(options.button)options.button.textContent=t('pingAllProgress',current.done,current.total);
+      }
       await new Promise((resolve)=>window.setTimeout(resolve,1000));
       current=await api(`/api/interactive/${encodeURIComponent(task.id)}`);
     }
     if(current.status==='failed') throw new Error(current.error||t('interactiveBusy'));
-    if(current.kind==='ping-all') {
-      await reloadVisibleJobResults();
-    } else if(current.kind==='download') {
+    if(current.kind==='download') {
       const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);
       if(item&&current.result)item.speedCheck=current.result;
       if(item) refreshResultCard(item);
     }
   } finally {
+    if(task.kind==='ping-all'){
+      try{await reloadVisibleJobResults();}catch{}
+      state.deferPingSort=false;state.pingRouteOrder=null;state.pingCountryOrder=null;renderResults();
+    }
     if(state.interactiveId===task.id){const item=options.item||state.currentResults.find((entry)=>entry.uri===state.interactiveUri);state.interactiveId='';state.interactiveKind='';state.interactiveUri='';state.interactiveProgress=null;if(item)refreshResultCard(item);}
   }
 }
@@ -512,7 +524,8 @@ function renderResults() {
     if (state.sortBy === 'country') return String(a.country || '').localeCompare(String(b.country || ''), state.lang) || String(a.name || '').localeCompare(String(b.name || ''), state.lang);
     return (Number(a.pingCheck?.ms ?? a.ms ?? Infinity) - Number(b.pingCheck?.ms ?? b.ms ?? Infinity)) || String(a.name || '').localeCompare(String(b.name || ''), state.lang);
   };
-  filtered.sort(compare);
+  if(state.deferPingSort&&state.pingRouteOrder){filtered.sort((a,b)=>(state.pingRouteOrder.get(a.uri)??Number.MAX_SAFE_INTEGER)-(state.pingRouteOrder.get(b.uri)??Number.MAX_SAFE_INTEGER));}
+  else filtered.sort(compare);
   state.visibleIndices = filtered.map((item) => state.currentResults.indexOf(item));
   $('#selection-count').textContent = t('selectionCount', state.selectedUris.size);
   $('#copy-selected-json').disabled = !state.selectedUris.size;
@@ -522,9 +535,11 @@ function renderResults() {
     elements.countries.innerHTML = `<details class="country-card" data-view="name" ${previousView === 'name' ? allConfigsWasOpen ? 'open' : '' : 'open'}><summary><span><span class="country-title">${escapeHtml(t('allConfigs'))}</span><span class="country-count">${escapeHtml(t('connections', number(ordered.length)))} · ${escapeHtml(t('sortedName'))}</span></span><span class="country-actions" aria-hidden="true">⌄</span></summary><div class="country-body">${ordered.map(({item,index}) => resultCard(item,index)).join('')}</div></details>`; return;
   }
   const groups = new Map(); for (const item of filtered) { const country = item.country || t('countryUnknown'); if (!groups.has(country)) groups.set(country, []); groups.get(country).push(item); }
-  const orderedGroups = [...groups.entries()].sort(([a,itemsA],[b,itemsB]) => state.sortBy === 'rtt'
-    ? Math.min(...itemsA.map((item) => Number(item.pingCheck?.ms ?? item.ms ?? Infinity))) - Math.min(...itemsB.map((item) => Number(item.pingCheck?.ms ?? item.ms ?? Infinity)))
-    : a.localeCompare(b,state.lang));
+  const orderedGroups = [...groups.entries()].sort(([a,itemsA],[b,itemsB]) => state.deferPingSort&&state.pingCountryOrder
+    ? (state.pingCountryOrder.get(a)??Number.MAX_SAFE_INTEGER)-(state.pingCountryOrder.get(b)??Number.MAX_SAFE_INTEGER)
+    : state.sortBy === 'rtt'
+      ? Math.min(...itemsA.map((item) => Number(item.pingCheck?.ms ?? item.ms ?? Infinity))) - Math.min(...itemsB.map((item) => Number(item.pingCheck?.ms ?? item.ms ?? Infinity)))
+      : a.localeCompare(b,state.lang));
   elements.countries.innerHTML = orderedGroups.map(([country,items],groupIndex) => {
     const indexed = items.map((item) => ({item,index:state.currentResults.indexOf(item)}));
     const shouldOpen = previousView === 'country' && hadRenderedCards ? openCountries.has(country) : groupIndex === 0;

@@ -26,6 +26,7 @@ const execFileAsync = promisify(execFile);
 const CHUNK_SIZE = 100;
 const AUTO_BATCH_SIZE = 10;
 const MAX_ROUTES_PER_XRAY = 10;
+const PING_ALL_BATCH_SIZE = 5;
 const MAX_CONFIGS_PER_AUDIT = 2500;
 const SUPPORTED_PROTOCOL_IDS = new Set(['vless','vmess','trojan','shadowsocks','hysteria2','wireguard','masque']);
 const SUPPORTED_SECURITY_TYPES = new Set(['tls','reality','none','other']);
@@ -546,7 +547,7 @@ function interactiveSummary(task) {
     id: task.id, kind: task.kind, jobId: task.jobId,
     status: task.status, done: task.done || 0, total: task.total || 0,
     serviceId: task.serviceId || '', result: task.result || null,
-    samples: task.samples || [], error: task.error || '',
+    samples: task.samples || [], recentResults: task.recentResults || [], error: task.error || '',
     updated: task.updated || new Date().toISOString(),
   };
 }
@@ -603,12 +604,12 @@ async function runInteractiveTask(task, job, item, config) {
       const entries = task.entries || [];
       task.status = 'running';
       task.total = entries.length;
-      for (let start = 0; start < entries.length; start += MAX_ROUTES_PER_XRAY) {
+      for (let start = 0; start < entries.length; start += PING_ALL_BATCH_SIZE) {
         if (signal.aborted) throw signal.reason || new Error('بررسی لغو شد.');
-        const chunk = entries.slice(start, start + MAX_ROUTES_PER_XRAY);
+        const chunk = entries.slice(start, start + PING_ALL_BATCH_SIZE);
         const countryMap = Object.fromEntries(chunk.filter(({ item }) => item.ip).map(({ item }) => [item.ip, { country: item.country || '', countryCode: item.countryCode || '' }]));
         const checks = await testBatch(chunk.map(({ config }) => config), countryMap, {
-          checkExit: false, checkServices: false, concurrency: Math.min(chunk.length, MAX_ROUTES_PER_XRAY), signal, throwBatchErrors: true,
+          checkExit: false, checkServices: false, concurrency: Math.min(chunk.length, PING_ALL_BATCH_SIZE), signal, throwBatchErrors: true,
         });
         checks.forEach((check, index) => {
           const { item } = chunk[index];
@@ -620,6 +621,7 @@ async function runInteractiveTask(task, job, item, config) {
           };
         });
         task.done += chunk.length;
+        task.recentResults = chunk.map(({ item }) => ({ uri: item.uri, endpointConnectMs: item.endpointConnectMs, pingCheck: item.pingCheck }));
         task.result = { updated: task.done };
         task.updated = new Date().toISOString();
         await saveJob(RESULTS, job);
