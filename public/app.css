@@ -92,6 +92,33 @@
 .history-rescan-options{display:grid;gap:8px;margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}.history-rescan-options[hidden]{display:none}.history-rescan-options>p{margin:0;color:var(--muted);font-size:10px}.history-rescan-options fieldset{margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px}.history-rescan-options legend{padding:0 4px;color:var(--muted);font-size:10px}.rescan-url-field{display:grid;gap:4px;color:var(--muted);font-size:10px}.rescan-url-field input{width:100%;min-width:0;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:var(--surface);color:var(--text);font-size:11px;direction:ltr;text-align:left}.history-rescan-options .rescan-submit{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
 .resume-history{color:var(--good)}
 
+/* Give saved audits a predictable information and action layout. */
+.history-card{align-self:start;min-width:0;padding:14px}
+.history-card-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(205px,238px);align-items:start;gap:14px}
+.history-meta{display:grid;align-content:start;gap:4px}
+.history-meta>span{display:block}
+.history-meta small{line-height:1.55;overflow-wrap:anywhere}
+.history-tags{gap:5px;margin-top:3px}
+.history-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;justify-content:initial;gap:6px}
+.history-actions .open-history{display:inline-flex;align-items:center;justify-content:center;min-width:0;min-height:32px;padding:6px 7px;text-align:center;white-space:normal;line-height:1.2}
+.history-actions .favorite-history{width:100%;min-height:32px}
+.history-actions .rescan-history{color:var(--accent-2)}
+.history-actions .resume-history{color:var(--good)}
+.history-card:has(.history-edit:not([hidden])),.history-card:has(.history-rescan-options:not([hidden])){grid-column:1/-1}
+.history-edit{grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:10px;margin-top:14px;padding-top:14px}
+.history-edit-actions{grid-column:1/-1}
+.history-rescan-options{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;padding:14px}
+.history-rescan-options .rescan-url-field,.history-rescan-options>p,.history-rescan-options .history-edit-actions{grid-column:1/-1}
+.history-rescan-options fieldset{min-width:0}
+@media(max-width:700px){
+  .history-card-main{grid-template-columns:minmax(0,1fr);gap:12px}
+  .history-actions{grid-template-columns:repeat(2,minmax(0,1fr));justify-content:stretch}
+  .history-edit{grid-template-columns:minmax(0,1fr)}
+  .history-edit-url,.history-edit-actions{grid-column:1}
+  .history-rescan-options{grid-template-columns:minmax(0,1fr)}
+  .history-rescan-options .rescan-url-field,.history-rescan-options>p,.history-rescan-options .history-edit-actions{grid-column:1}
+}
+
 /* Compact route audit cards and interactive service drawer */
 .route-card{position:relative;grid-template-columns:20px minmax(210px,1.4fr) minmax(76px,.42fr) minmax(94px,.52fr) minmax(72px,.4fr) auto minmax(210px,.8fr);gap:12px 14px;padding:14px 12px;border-radius:14px;align-items:center;transition:border-color .2s,background .2s,box-shadow .2s;cursor:pointer}
 .route-card:hover{border-color:color-mix(in srgb,var(--accent) 54%,var(--line));background:color-mix(in srgb,var(--surface-2) 82%,var(--accent) 4%)}

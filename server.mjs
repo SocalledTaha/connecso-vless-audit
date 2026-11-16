@@ -364,17 +364,7 @@ async function runJob(job, configs, operation = null) {
     const liveChecked = new Set(checked);
     job.progressDone = liveChecked.size;
     const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
-    const workerPlan = await recommendedXrayWorkerPlan();
-    if (remaining.length && workerPlan.count < 1) {
-      throw Object.assign(new Error(`رم آزاد کافی نیست؛ حداقل ${workerPlan.reserveMiB + workerPlan.workerBudgetMiB} مگابایت لازم است تا ۲۰۰ مگابایت برای سیستم باقی بماند.`), { code:'XRAY_MEMORY' });
-    }
-    const workerLimit = Number(job.workerLimit) > 0 ? Number(job.workerLimit) : workerPlan.count;
-    const workerCount = Math.min(workerPlan.count, workerLimit, remaining.length);
-    job.workerCount = workerCount;
-    await saveJob(RESULTS, job);
-    console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length} routes pending (RAM available ${workerPlan.availableMiB} MiB; reserve ${workerPlan.reserveMiB} MiB; ${workerPlan.workerBudgetMiB} MiB per worker).`);
-    const partitionSize = Math.ceil(remaining.length / workerCount);
-    const partitions = Array.from({ length: workerCount }, (_, index) => remaining.slice(index * partitionSize, (index + 1) * partitionSize)).filter((items) => items.length);
+    const workerLimit = Number(job.workerLimit) > 0 ? Math.min(3, Number(job.workerLimit)) : 3;
     let saveQueue = Promise.resolve();
     const persistBatch = (batchResults, indexes) => {
       saveQueue = saveQueue.then(async () => {
@@ -389,40 +379,50 @@ async function runJob(job, configs, operation = null) {
       });
       return saveQueue;
     };
-    const failures = await Promise.all(partitions.map(async (partition, workerIndex) => {
-      try {
-        for (let start = 0; start < partition.length; start += batchSize) {
-          if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
-          const batch = partition.slice(start, start + batchSize);
-          let loggedReady = false;
-          const results = await testBatch(batch.map((item) => item.config), countries, {
-            checkExit: false,
-            serviceIds: [],
-            concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY),
-            signal,
-            throwBatchErrors: true,
-            onXrayReady: (routeCount) => {
-              if (loggedReady) return;
-              loggedReady = true;
-              console.log(`Audit ${job.id}: worker ${workerIndex + 1}/${partitions.length} Xray ready for ${routeCount} routes.`);
-            },
-            onRouteComplete: (localIndex) => {
-              const originalIndex = batch[localIndex]?.index;
-              if (Number.isInteger(originalIndex)) liveChecked.add(originalIndex);
-              job.progressDone = liveChecked.size;
-            },
-          });
-          await persistBatch(results, batch.map((item) => item.index));
-        }
-        return null;
-      } catch (error) {
-        return error;
-      }
-    }));
-    await saveQueue;
-    if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
-    const failure = failures.find(Boolean);
-    if (failure) throw failure;
+    let cursor = 0;
+    let waveIndex = 0;
+    while (cursor < remaining.length) {
+      if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
+      const workerPlan = await recommendedXrayWorkerPlan();
+      const plannedWorkers = waveIndex === 0 ? 1 : workerPlan.count;
+      const batchCount = Math.ceil((remaining.length - cursor) / batchSize);
+      const workerCount = Math.max(1, Math.min(plannedWorkers, workerLimit, batchCount));
+      const wave = remaining.slice(cursor, cursor + batchSize * workerCount);
+      const batches = Array.from({ length: workerCount }, (_, index) => wave.slice(index * batchSize, (index + 1) * batchSize)).filter((items) => items.length);
+      job.workerCount = workerCount;
+      await saveJob(RESULTS, job);
+      console.log(`Audit ${job.id}: ${workerCount} Xray worker(s), ${remaining.length - cursor} routes pending (RAM available ${workerPlan.availableMiB} MiB; reserve ${workerPlan.reserveMiB} MiB; estimated ${workerPlan.workerBudgetMiB} MiB per worker${workerPlan.measuredWorkerMiB ? `; measured peak ${workerPlan.measuredWorkerMiB} MiB` : '; calibrating from first worker'}).`);
+      const outcomes = await Promise.allSettled(batches.map(async (batch, workerIndex) => {
+        let loggedReady = false;
+        const results = await testBatch(batch.map((item) => item.config), countries, {
+          checkExit: false,
+          serviceIds: [],
+          concurrency: Math.min(batch.length, MAX_ROUTES_PER_XRAY),
+          signal,
+          throwBatchErrors: true,
+          onXrayReady: (routeCount) => {
+            if (loggedReady) return;
+            loggedReady = true;
+            console.log(`Audit ${job.id}: worker ${workerIndex + 1}/${batches.length} Xray ready for ${routeCount} routes.`);
+          },
+          onXrayMemoryPeak: (peakBytes) => {
+            console.log(`Audit ${job.id}: worker ${workerIndex + 1}/${batches.length} peak RSS ${Math.round(peakBytes / (1024 * 1024))} MiB.`);
+          },
+          onRouteComplete: (localIndex) => {
+            const originalIndex = batch[localIndex]?.index;
+            if (Number.isInteger(originalIndex)) liveChecked.add(originalIndex);
+            job.progressDone = liveChecked.size;
+          },
+        });
+        await persistBatch(results, batch.map((item) => item.index));
+      }));
+      await saveQueue;
+      if (signal?.aborted) throw signal.reason || new Error('بررسی لغو شد.');
+      const failure = outcomes.find((outcome) => outcome.status === 'rejected');
+      if (failure) throw failure.reason;
+      cursor += wave.length;
+      waveIndex += 1;
+    }
   } catch (error) {
     if (signal?.aborted) {
       job.error = '';
@@ -444,7 +444,7 @@ async function runJob(job, configs, operation = null) {
       job.workerLimit = Math.max(1, Number(job.workerCount) - 1);
       console.warn(`Audit ${job.id}: reducing Xray worker limit to ${job.workerLimit} after a worker startup failure.`);
     }
-    if (error.code !== 'XRAY_MEMORY' && job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
+    if (job.done < job.total && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES) {
       job.recoveryRetries = Number(job.recoveryRetries || 0) + 1;
       job.finished = false;
       job.interrupted = false;

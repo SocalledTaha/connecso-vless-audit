@@ -23,22 +23,25 @@ const GEO_DB_PATH = process.env.GEOIP_DB_FILE || path.join(path.dirname(process.
 const GEO_DB_MAX_AGE = 35 * 24 * 60 * 60 * 1000;
 let geoReader = null;
 let geoReaderPromise = null;
+let observedXrayPeakRssBytes = 0;
 
-export function calculateXrayWorkerPlan(availableBytes, totalBytes) {
+export function calculateXrayWorkerPlan(availableBytes, _totalBytes, measuredXrayRssBytes = observedXrayPeakRssBytes) {
   const MiB = 1024 * 1024;
-  const total = Math.max(MiB, Number(totalBytes) || MiB);
   const available = Math.max(0, Number(availableBytes) || 0);
-  // Keep at least 200 MiB available for the OS and panel. Budget each
-  // additional Xray process at 250 MiB, then use every full worker budget
-  // supported by the remaining memory and pending route count.
   const reserved = 200 * MiB;
-  const budgetPerWorker = 250 * MiB;
-  const count = Math.floor(Math.max(0, available - reserved) / budgetPerWorker);
+  // Use measured peak RSS plus headroom after the first calibration batch.
+  // Until an Xray has run, start with a conservative 128 MiB estimate.
+  const measured = Number(measuredXrayRssBytes) || 0;
+  const budgetPerWorker = measured > 0 ? Math.max(64 * MiB, Math.ceil(measured * 1.5)) : 128 * MiB;
+  // One baseline worker is always allowed; the 200 MiB reserve only limits
+  // additional workers and must never block the initial scan.
+  const count = Math.max(1, Math.min(3, Math.floor(Math.max(0, available - reserved) / budgetPerWorker)));
   return {
     count,
     availableMiB: Math.round(available / MiB),
     reserveMiB: Math.round(reserved / MiB),
     workerBudgetMiB: Math.round(budgetPerWorker / MiB),
+    measuredWorkerMiB: measured ? Math.round(measured / MiB) : 0,
   };
 }
 
@@ -92,6 +95,15 @@ function spawnXray(configPath) {
   });
   child.on('error', (error) => { child.xraySpawnError = error; });
   return child;
+}
+
+async function readXrayPeakRss(child) {
+  if (!child?.pid) return 0;
+  try {
+    const status = await readFile(`/proc/${child.pid}/status`, 'utf8');
+    const match = status.match(/^VmHWM:\s+(\d+)\s+kB$/m);
+    return match ? Number(match[1]) * 1024 : 0;
+  } catch { return 0; }
 }
 
 function xrayStartupError(child, reason = '') {
@@ -563,6 +575,11 @@ export async function testBatch(configs, countries, options = {}) {
     }
   } finally {
     options.signal?.removeEventListener('abort', abortChild);
+    const peakRssBytes = await readXrayPeakRss(child);
+    if (peakRssBytes > 0) {
+      observedXrayPeakRssBytes = Math.max(observedXrayPeakRssBytes, peakRssBytes);
+      try { options.onXrayMemoryPeak?.(peakRssBytes); } catch {}
+    }
     await stopXray(child, directory);
   }
   return results;

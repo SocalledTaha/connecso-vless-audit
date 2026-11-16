@@ -8,7 +8,7 @@ const GiB = 1024 * MiB;
 test('worker plan uses spare RAM on a typical 1.87 GiB VPS instead of pinning it to one worker', () => {
   const plan = calculateXrayWorkerPlan(790 * MiB, 1.87 * GiB);
   assert.equal(plan.count, 3);
-  assert.equal(plan.reserveMiB, 320);
+  assert.equal(plan.reserveMiB, 200);
   assert.equal(plan.workerBudgetMiB, 128);
 });
 
