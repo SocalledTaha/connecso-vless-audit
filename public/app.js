@@ -31,7 +31,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${s} نتیجهٔ موفق · ${t} کانفیگ بررسی‌شده · بارگذاری مرحله‌ای`,
     resultsChunk:(a,b)=>`دریافت ${a} از ${b} نتیجهٔ موفق…`,
     noSearch:'نتیجه‌ای با این جست‌وجو پیدا نشد.', noSuccess:'در این بررسی اتصال موفقی پیدا نشد.',
-    noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص',
+    noName:'کانفیگ بدون نام', rttLabel:'RTT HTTP', pingAgain:'چک پینگ مجدد', pingAll:'پینگ همه', pingAllChecking:'در حال پینگ همه…', pingChecking:'در حال سنجش…', pingFailed:'بدون پاسخ', speedTest:'تست دانلود', speedTesting:'در حال تست…', speedFailed:'تست سرعت انجام نشد', speedResult:(rate,seconds)=>`میانگین مجموع ۴ اتصال: ${faNum.format(rate)} مگابایت‌برثانیه · ${faNum.format(seconds)} ثانیه`, timingNotSaved:'جزئیات زمان‌بندی برای این نتیجه ذخیره نشده است.', proxyConnect:'اتصال پراکسی', tlsViaOutbound:'TLS از تونل', firstByte:'اولین پاسخ', exitIp:'IP خروجی', countryUnknown:'کشور نامشخص', progressReconnect:'ارتباط لحظه‌ای قطع شد؛ در حال تلاش دوباره برای دریافت پیشرفت…',
     oldService:'بررسی نشده', reachable:'پاسخ موفق', unavailable:'پاسخ موفقی دریافت نشد', noReply:'بدون پاسخ', httpResponded:'پاسخ HTTP دریافت شد؛ سرور مقصد در دسترس است', httpResponseTime:'زمان کامل پاسخ HTTP', gameReachabilityOnly:'فقط دسترسی سایت؛ پینگ سرور بازی نیست', httpStatusIssue:'کد HTTP خطا/محدودیت است، نه خطای اتصال تونل', routeCheckFailed:'درخواست آزمون به مقصد نرسید', probeError_timeout:'مهلت پاسخ تمام شد', probeError_dns:'خطای DNS مقصد', probeError_tls:'خطای TLS', probeError_refused:'اتصال از سمت مقصد رد شد', probeError_network:'خطای شبکه یا مسیر', httpStatus:'HTTP', endpointPing:'پینگ مستقیم مقصد', endpointPingTip:'ICMP از سرور بررسی تا IP مقصد؛ ممکن است پاسخ ICMP بسته باشد.', selectConfig:'انتخاب کانفیگ', incompatible:'نیازمند بررسی', unsupportedOutbound:'ساختار اوتباند معتبر نیست', requiredFields:'آدرس، پورت یا اطلاعات احراز هویت ناقص است', unsupportedTransport:'انتقال با Xray پشتیبانی نمی‌شود', unsupportedCipher:'روش رمزنگاری Shadowsocks با Xray سازگار نیست', unsupportedSecurity:'امنیت این کانفیگ پشتیبانی نمی‌شود', missingReality:'SNI یا Public Key در Reality ناقص است', missingSni:'SNI در TLS ناقص است', protocol:'پروتکل', transport:'انتقال',
     configCopy:'کپی کانفیگ', copied:'کپی شد', ready:'آماده شد', copyAll:'کپی همه', copyJson:'کپی JSON', downloadJson:'دانلود JSON',
     allConfigs:'همهٔ کانفیگ‌ها', connections:(n)=>`${n} اتصال`, sortedName:'مرتب‌شده بر اساس نام', sortRtt:'کمترین RTT', sortName:'نام', sortCountry:'کشور', allProtocols:'همهٔ پروتکل‌ها', anyService:'همهٔ سرویس‌ها', selectionCount:(n)=>`${number(n)} انتخاب`, selectVisible:'انتخاب موارد قابل‌مشاهده', clearSelection:'پاک‌کردن انتخاب', exportSelected:'کپی JSON انتخاب‌ها', exportAll:'کپی JSON همه', hideDuplicates:'پنهان‌کردن تکراری‌ها', duplicate:'تکراری', outboundReady:'خروجی معتبر', allCountries:'همهٔ کشورها',
@@ -67,7 +67,7 @@ const dictionaries = {
     resultsLoaded:(s,t)=>`${s} working results · ${t} configs checked · loaded in pages`,
     resultsChunk:(a,b)=>`Loading ${a} of ${b} working results…`,
     noSearch:'No results match this search.', noSuccess:'No working connections were found in this audit.',
-    noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country',
+    noName:'Unnamed config', rttLabel:'HTTP RTT', pingAgain:'Check ping again', pingAll:'Ping all', pingAllChecking:'Pinging all…', pingChecking:'Checking…', pingFailed:'No response', speedTest:'Download test', speedTesting:'Testing…', speedFailed:'Speed test failed', speedResult:(rate,seconds)=>`4-stream average: ${rate} MB/s · ${seconds}s`, timingNotSaved:'Timing details were not saved for this result.', proxyConnect:'Proxy connect', tlsViaOutbound:'TLS via outbound', firstByte:'First byte', exitIp:'Exit IP', countryUnknown:'Unknown country', progressReconnect:'Live connection lost; reconnecting to get progress…',
     oldService:'Not checked', reachable:'Successful response', unavailable:'No successful HTTP response', noReply:'No response', httpResponded:'HTTP response received; destination server is reachable', httpResponseTime:'Full HTTP response time', gameReachabilityOnly:'Website reachability only; not a game-server ping', httpStatusIssue:'HTTP error/restriction code, not a tunnel connection error', routeCheckFailed:'Probe request did not reach the destination', probeError_timeout:'Request timed out', probeError_dns:'Destination DNS error', probeError_tls:'TLS error', probeError_refused:'Connection refused by destination', probeError_network:'Network or route error', httpStatus:'HTTP', endpointPing:'Direct endpoint ping', endpointPingTip:'ICMP from the audit server to the endpoint IP; ICMP may be blocked.', selectConfig:'Select configuration', incompatible:'Check required', unsupportedOutbound:'Invalid outbound structure', requiredFields:'Address, port, or authentication data is missing', unsupportedTransport:'Transport is unsupported by Xray', unsupportedCipher:'This Shadowsocks cipher is not supported by Xray', unsupportedSecurity:'This security mode is unsupported', missingReality:'Reality SNI or public key is missing', missingSni:'TLS SNI is missing', protocol:'Protocol', transport:'Transport',
     configCopy:'Copy config', copied:'Copied', ready:'Ready', copyAll:'Copy all', copyJson:'Copy JSON', downloadJson:'Download JSON',
     allConfigs:'All configurations', connections:(n)=>`${n} routes`, sortedName:'sorted by name', sortRtt:'Lowest RTT', sortName:'Name', sortCountry:'Country', allProtocols:'All protocols', anyService:'Any service', selectionCount:(n)=>`${number(n)} selected`, selectVisible:'Select visible', clearSelection:'Clear selection', exportSelected:'Copy selected JSON', exportAll:'Copy all JSON', hideDuplicates:'Hide duplicates', duplicate:'Duplicate', outboundReady:'Valid outbound', allCountries:'All countries',
@@ -188,8 +188,9 @@ function setBusy(busy, kind = '') { state.busy = busy; state.busyKind = busy ? (
 function setProgress(job, detail = '') {
   state.lastJob = job; elements.progress.hidden = false;
   elements.progressTitle.textContent = job.finished ? (job.interrupted ? t('interrupted') : t('completed')) : t('connecting');
-  elements.progressCount.textContent = t('progressCount', number(job.done || 0), number(job.total || 0), number(job.success || 0));
-  elements.progressBar.style.width = `${job.total ? Math.min(100, (job.done / job.total) * 100) : 0}%`;
+  const progressDone = Math.max(Number(job.done) || 0, Number(job.progressDone) || 0);
+  elements.progressCount.textContent = t('progressCount', number(progressDone), number(job.total || 0), number(job.success || 0));
+  elements.progressBar.style.width = `${job.total ? Math.min(100, (progressDone / job.total) * 100) : 0}%`;
   elements.progressMessage.textContent = detail || job.message || (job.finished ? t('doneCount', number(job.success || 0), number(job.total || 0)) : t('batchProgress', Number(job.workerCount) || 0));
   const stopButton=$('#stop-audit');if(stopButton)stopButton.hidden=Boolean(job.finished||!job.id);
 }
@@ -206,11 +207,21 @@ async function loadHistory() {
     elements.history.innerHTML = items.map((job) => {
       const title = job.title?.trim() || job.id;
       const tags = (job.tags || []).map((tag) => `<span class="history-tag">${escapeHtml(tag)}</span>`).join('');
-      const done = Number(job.done) || 0;
+      const done = Math.max(Number(job.done) || 0, Number(job.progressDone) || 0);
       const protocolOptions = RESCAN_PROTOCOLS.map(([id, label]) => `<label class="option-check"><input type="checkbox" name="protocolIds" value="${id}" checked><span>${label}</span></label>`).join('');
       return `<article class="history-card"><div class="history-card-main"><div class="history-meta"><strong>${job.favorite ? '★ ' : ''}${escapeHtml(title)}</strong><span>${escapeHtml(dateLabel(job.created))}</span><small>${escapeHtml(t('historySuccess', number(job.success), number(job.total), number(done), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted)))}${job.error ? ` · ${escapeHtml(job.error)}` : ''}</small>${tags ? `<div class="history-tags">${tags}</div>` : ''}</div><div class="history-actions"><button class="open-history" type="button" data-open-job="${escapeHtml(job.id)}">${escapeHtml(t('openHistory'))}</button>${job.hasSubscriptionUrl ? `<button class="open-history" type="button" data-copy-subscription="${escapeHtml(job.id)}">${escapeHtml(t('copySubscription'))}</button>` : ''}${job.canResume ? `<button class="open-history resume-history" type="button" data-resume-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('resume'))}</button>` : ''}<button class="open-history" type="button" data-edit-meta="${escapeHtml(job.id)}">${escapeHtml(t('editHistory'))}</button><button class="open-history favorite-history ${job.favorite ? 'is-favorite' : ''}" type="button" data-favorite-job="${escapeHtml(job.id)}" aria-label="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}" title="${escapeHtml(t(job.favorite ? 'unfavoriteHistory' : 'favoriteHistory'))}">${job.favorite ? '★' : '☆'}</button><button class="open-history rescan-history" type="button" data-rescan-job="${escapeHtml(job.id)}">↻ ${escapeHtml(t('rescan'))}</button></div></div><form class="history-rescan-options" data-rescan-form="${escapeHtml(job.id)}" hidden><label class="rescan-url-field"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><p>${escapeHtml(t('rescanLinkHint'))}</p><fieldset><legend>${escapeHtml(t('protocolFilters'))}</legend><div class="scan-option-grid">${protocolOptions}</div></fieldset><div class="history-edit-actions"><button class="open-history rescan-submit" type="submit">${escapeHtml(t('rescanStart'))}</button><button class="open-history" type="button" data-cancel-rescan="${escapeHtml(job.id)}">${escapeHtml(t('cancelRescan'))}</button></div></form><form class="history-edit" data-history-form="${escapeHtml(job.id)}" data-favorite="${job.favorite ? 'true' : 'false'}" hidden><label><span>${escapeHtml(t('editName'))}</span><input name="title" maxlength="80" value="${escapeHtml(job.title || '')}"></label><label><span>${escapeHtml(t('editTags'))}</span><input name="tags" maxlength="200" value="${escapeHtml((job.tags || []).join(', '))}"></label><label class="history-edit-url"><span>${escapeHtml(t('editSubscriptionUrl'))}</span><input name="subscriptionUrl" type="url" maxlength="2048" dir="ltr" autocomplete="url" placeholder="https://example.com/subscription" value="${escapeHtml(job.subscriptionUrl || '')}"></label><div class="history-edit-actions"><button class="open-history" type="submit">${escapeHtml(t('saveMeta'))}</button><button class="open-history" type="button" data-cancel-meta="${escapeHtml(job.id)}">${escapeHtml(t('cancelMeta'))}</button></div></form></article>`;
     }).join('');
+    elements.history.querySelectorAll('.history-card').forEach((card, index) => {
+      const status = card.querySelector('.history-meta small');
+      if (status && items[index]) status.dataset.historyProgress = items[index].id;
+    });
   } catch (error) { elements.history.innerHTML = `<div class="empty-history">${escapeHtml(t('historyError'))}: ${escapeHtml(error.message)}</div>`; }
+}
+function updateHistoryProgress(job) {
+  const status = elements.history.querySelector(`[data-history-progress="${CSS.escape(job.id)}"]`);
+  if (!status) return;
+  const checked = Math.max(Number(job.done) || 0, Number(job.progressDone) || 0);
+  status.textContent = `${t('historySuccess', number(job.success), number(job.total), number(checked), Boolean(job.finished && !job.interrupted), Boolean(job.interrupted))}${job.error ? ` · ${job.error}` : ''}`;
 }
 async function loadResults(jobId, title = t('resultTitle')) {
   elements.results.hidden = false; elements.resultsTitle.textContent = title; elements.resultsSummary.textContent = t('resultsLoading');
@@ -467,18 +478,39 @@ async function copyText(text, button) {
   button.textContent=t('copied'); window.setTimeout(()=>{button.textContent=original;},1400);
 }
 async function monitorJob(job, generation = state.activityGeneration) {
-  let current=job; if(generation!==state.activityGeneration)return; setProgress(current);
+  if(generation!==state.activityGeneration)return;
+  await loadHistory();
+  let current=job; if(generation!==state.activityGeneration)return; setProgress(current);updateHistoryProgress(current);
   state.currentJob=job.id;state.currentResults=[];state.selectedUris.clear();elements.results.hidden=false;elements.resultsTitle.textContent=t('newResults');elements.countries.innerHTML='';
   let loadedCount=0,lastRenderedCount=0,lastRenderedAt=Date.now();
   while(!current.finished){
     await new Promise((resolve)=>window.setTimeout(resolve,1100));if(generation!==state.activityGeneration)return;
-    current=await api(`/api/jobs/${encodeURIComponent(job.id)}?summary=1`);if(generation!==state.activityGeneration)return;setProgress(current);
-    const chunk=await api(`/api/jobs/${encodeURIComponent(job.id)}?offset=${loadedCount}&limit=100`);
+    try { current=await api(`/api/jobs/${encodeURIComponent(job.id)}?summary=1`); }
+    catch { setProgress(current,t('progressReconnect'));continue; }
+    if(generation!==state.activityGeneration)return;setProgress(current);updateHistoryProgress(current);
+    let chunk;
+    try { chunk=await api(`/api/jobs/${encodeURIComponent(job.id)}?offset=${loadedCount}&limit=100`); }
+    catch { setProgress(current,t('progressReconnect'));continue; }
     if(chunk.results.length){state.currentResults.push(...chunk.results);loadedCount+=chunk.results.length;elements.resultsSummary.textContent=t('resultsChunk',number(loadedCount),number(chunk.success));if(loadedCount-lastRenderedCount>=50||Date.now()-lastRenderedAt>=5000||current.finished){renderResults();lastRenderedCount=loadedCount;lastRenderedAt=Date.now();}}
   }
   if(generation!==state.activityGeneration)return;
   if(current.error) elements.progressMessage.textContent=current.error;
   await reloadVisibleJobResults();elements.resultsSummary.textContent=t('resultsLoaded',number(state.currentResults.length),number(current.total||state.currentResults.length));renderResults();await loadHistory();
+}
+async function restoreActiveAudit() {
+  if (state.busy) return;
+  try {
+    const history = await api('/api/history');
+    const active = history.find((job) => !job.finished && Number(job.done) < Number(job.total));
+    if (!active || state.busy) return;
+    const job = await api(`/api/jobs/${encodeURIComponent(active.id)}?summary=1`);
+    if (job.finished) return;
+    const generation = ++state.activityGeneration;
+    setBusy(true,'audit');
+    try { await monitorJob(job,generation); }
+    catch (error) { if (generation === state.activityGeneration) { setProgress(job,t('progressReconnect'));showError(error.message); } }
+    finally { if (generation === state.activityGeneration) setBusy(false); }
+  } catch {}
 }
 document.querySelectorAll('.tab').forEach((tab)=>tab.addEventListener('click',()=>{
   document.querySelectorAll('.tab').forEach((item)=>{const selected=item===tab;item.classList.toggle('active',selected);item.setAttribute('aria-selected',String(selected));});
@@ -626,5 +658,5 @@ $('#update-button').addEventListener('click', async (event) => {
   catch (error) { showUpdateStatus({ state:'failed', error:error.message }); button.disabled = false; }
 });
 $('#logout-button').addEventListener('click',async()=>{try{await fetch('/api/logout',{method:'POST',cache:'no-store'});}finally{window.location.assign('/login');}});
-setTheme(localStorage.getItem('vless-audit-theme')||'dark');applyLanguage();watchUpdate();
+setTheme(localStorage.getItem('vless-audit-theme')||'dark');applyLanguage();watchUpdate();restoreActiveAudit();
 api('/api/health').catch((error)=>{elements.progress.hidden=false;elements.progressMessage.textContent=`${t('healthError')}: ${error.message}`;});

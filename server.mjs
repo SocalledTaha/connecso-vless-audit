@@ -176,6 +176,7 @@ function summary(job) {
     batchSize: AUTO_BATCH_SIZE,
     workerCount: Number(job.workerCount) || 0,
     done: job.done,
+    progressDone: Math.max(Number(job.done) || 0, Number(job.progressDone) || 0),
     success: job.success,
     failed: Math.max(0, job.done - job.success),
     finished: Boolean(job.finished),
@@ -321,6 +322,8 @@ async function runJob(job, configs, operation = null) {
       : Array.from({ length: Math.min(configs.length, Number(job.done) || 0) }, (_, index) => index));
     job.checkedIndexes = [...checked].sort((a, b) => a - b);
     job.done = checked.size;
+    const liveChecked = new Set(checked);
+    job.progressDone = liveChecked.size;
     const remaining = configs.map((config, index) => ({ config, index })).filter((item) => !checked.has(item.index));
     const workerPlan = await recommendedXrayWorkerPlan();
     const workerLimit = Math.max(1, Math.min(3, Number(job.workerLimit) || 3));
@@ -360,6 +363,11 @@ async function runJob(job, configs, operation = null) {
               if (loggedReady) return;
               loggedReady = true;
               console.log(`Audit ${job.id}: worker ${workerIndex + 1}/${partitions.length} Xray ready for ${routeCount} routes.`);
+            },
+            onRouteComplete: (localIndex) => {
+              const originalIndex = batch[localIndex]?.index;
+              if (Number.isInteger(originalIndex)) liveChecked.add(originalIndex);
+              job.progressDone = liveChecked.size;
             },
           });
           await persistBatch(results, batch.map((item) => item.index));
@@ -404,6 +412,7 @@ async function runJob(job, configs, operation = null) {
     }
   }
   job.finished = true;
+  job.progressDone = job.done;
   job.interrupted = Boolean(job.error && job.done < job.total);
   job.resumeEligible = job.done < job.total && Boolean(job.scanConfigs?.length)
     && Number(job.recoveryRetries || 0) < MAX_RECOVERY_RETRIES;
@@ -428,6 +437,7 @@ async function resumePendingJobs() {
   for (const job of pending.slice(1)) {
     job.resumeEligible = false;
     job.finished = true;
+    job.progressDone = job.done;
     job.interrupted = true;
     await saveJob(RESULTS, job);
   }

@@ -492,6 +492,12 @@ export async function testBatch(configs, countries, options = {}) {
   if (options.signal?.aborted) throw options.signal.reason || new Error('بررسی لغو شد.');
   const results = new Array(configs.length);
   const entries = [];
+  const completed = new Set();
+  const routeComplete = (index) => {
+    if (completed.has(index)) return;
+    completed.add(index);
+    try { options.onRouteComplete?.(index); } catch {}
+  };
   await Promise.all(configs.map(async (config, index) => {
     const base = resultBase(config, countries);
     try {
@@ -499,6 +505,7 @@ export async function testBatch(configs, countries, options = {}) {
       if (!addresses.length) {
         base.error = 'IP عمومی برای مقصد پیدا نشد.';
         results[index] = base;
+        routeComplete(index);
         return;
       }
       base.ip = addresses.slice().sort()[0];
@@ -512,6 +519,7 @@ export async function testBatch(configs, countries, options = {}) {
     } catch (error) {
       base.error = error.message || 'DNS یا تنظیمات کانفیگ معتبر نیست.';
       results[index] = base;
+      routeComplete(index);
     }
   }));
   if (!entries.length) return results;
@@ -539,6 +547,7 @@ export async function testBatch(configs, countries, options = {}) {
       while (cursor < entries.length) {
         const index = cursor++;
         checked[index] = await testThroughSocks(entries[index].config, entries[index].base, ports[index], options);
+        routeComplete(entries[index].index);
       }
     }));
     checked.forEach((result, index) => { results[entries[index].index] = result; });
@@ -550,6 +559,7 @@ export async function testBatch(configs, countries, options = {}) {
         item.base.error = error.message || 'اجرای دستهٔ Xray ناموفق بود.';
         results[item.index] = item.base;
       }
+      routeComplete(item.index);
     }
   } finally {
     options.signal?.removeEventListener('abort', abortChild);
