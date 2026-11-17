@@ -4,6 +4,20 @@
 
 A self-hosted web panel for checking proxy routes from subscription links or pasted configs, reviewing saved audits, and exporting working outbounds as JSON.
 
+## Screenshots
+
+### Route results
+
+![Route results](docs/screenshots/routes.png)
+
+### Audit history
+
+![Audit history](docs/screenshots/audit-history.png)
+
+### New audit
+
+![New audit](docs/screenshots/new-audit.png)
+
 ## 📚 Contents
 - [✨ Features](#-features)
 - [🧪 How checks work](#-how-checks-work)
