@@ -6,17 +6,9 @@ A self-hosted web panel for checking proxy routes from subscription links or pas
 
 ## Screenshots
 
-### Route results
-
-![Route results](docs/screenshots/routes.png)
-
-### Audit history
-
-![Audit history](docs/screenshots/audit-history.png)
-
-### New audit
-
-![New audit](docs/screenshots/new-audit.png)
+| Route results | Audit history | New audit |
+|---|---|---|
+| [![Route results](docs/screenshots/routes.png)](docs/screenshots/routes.png) | [![Audit history](docs/screenshots/audit-history.png)](docs/screenshots/audit-history.png) | [![New audit](docs/screenshots/new-audit.png)](docs/screenshots/new-audit.png) |
 
 ## 📚 Contents
 - [✨ Features](#-features)

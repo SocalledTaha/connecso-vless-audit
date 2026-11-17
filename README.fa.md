@@ -6,17 +6,9 @@
 
 ## تصاویر پنل
 
-### نتایج مسیرها
-
-![نتایج مسیرها](docs/screenshots/routes.png)
-
-### سابقهٔ بررسی‌ها
-
-![سابقهٔ بررسی‌ها](docs/screenshots/audit-history.png)
-
-### بررسی جدید
-
-![بررسی جدید](docs/screenshots/new-audit.png)
+| نتایج مسیرها | سابقهٔ بررسی‌ها | بررسی جدید |
+|---|---|---|
+| [![نتایج مسیرها](docs/screenshots/routes.png)](docs/screenshots/routes.png) | [![سابقهٔ بررسی‌ها](docs/screenshots/audit-history.png)](docs/screenshots/audit-history.png) | [![بررسی جدید](docs/screenshots/new-audit.png)](docs/screenshots/new-audit.png) |
 
 ## 📚 فهرست
 - [✨ امکانات](#-امکانات)
