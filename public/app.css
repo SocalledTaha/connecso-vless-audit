@@ -224,7 +224,7 @@
 .search-box{width:100%;max-width:none;min-height:40px;padding:7px 11px}
 .search-box input{font-size:13px}
 .results-shown{color:var(--muted);font-size:12px;text-align:end;white-space:nowrap}
-.selection-toolbar{display:grid;grid-template-columns:auto repeat(4,max-content) minmax(0,1fr);align-items:center;gap:8px;margin-bottom:14px;padding:11px 13px}
+.selection-toolbar{display:grid;grid-template-columns:auto repeat(5,max-content) minmax(0,1fr);align-items:center;gap:8px;margin-bottom:14px;padding:11px 13px}
 .selection-toolbar>span{font-size:13px;margin:0}
 .hide-duplicates{justify-self:end}
 .hide-duplicates,.selection-toolbar .option-check{font-size:12px}
@@ -236,6 +236,7 @@
 .country-title{font-size:14px}
 .country-count{font-size:12px}
 .country-actions .copy-button{min-height:34px;padding:6px 10px;font-size:11px}
+.country-actions .select-country-button.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--surface-2));color:var(--accent-2)}
 .country-body{padding:8px 14px 13px}
 .result-item.route-card{grid-template-columns:22px minmax(220px,1.5fr) repeat(3,minmax(120px,.5fr)) minmax(290px,1fr);gap:12px 14px;padding:15px 12px}
 .result-item.route-card>.security-tag{grid-column:2;grid-row:2}

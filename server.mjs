@@ -1,5 +1,5 @@
 import https from 'node:https';
-import { readFile, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, rename, unlink, readdir, chmod } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -14,6 +14,7 @@ import { SERVICES, SERVICE_GROUPS } from './src/services.mjs';
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, 'public');
 const RESULTS = process.env.RESULTS_DIR || '/opt/vless-audit/results';
+const SUBSCRIPTIONS = path.join(RESULTS, 'subscriptions');
 const UPDATE_REQUEST = path.join(RESULTS, 'update-request.json');
 const UPDATE_STATUS = path.join(RESULTS, 'update-status.json');
 const CERT = process.env.CERT_FILE || '/etc/vless-audit/server.crt';
@@ -66,6 +67,15 @@ function filterConfigs(configs, filters = {}) {
     && transportTypes.has(configTransportType(config)));
 }
 const jobs = await loadJobs(RESULTS);
+const publicSubscriptions = new Map();
+await mkdir(SUBSCRIPTIONS, { recursive: true, mode: 0o700 });
+for (const filename of await readdir(SUBSCRIPTIONS)) {
+  if (!/^[A-Za-z0-9_-]{32}\.json$/.test(filename)) continue;
+  try {
+    const saved = JSON.parse(await readFile(path.join(SUBSCRIPTIONS, filename), 'utf8'));
+    if (Array.isArray(saved.uris) && saved.uris.length) publicSubscriptions.set(filename.slice(0, -5), saved);
+  } catch {}
+}
 const MAX_RECOVERY_RETRIES = 5;
 let activeJob = null;
 let activeOperation = null;
@@ -105,6 +115,18 @@ function sendJson(response, status, value) {
   headers(response, 'application/json; charset=utf-8');
   response.writeHead(status, { 'Content-Length': Buffer.byteLength(body) });
   response.end(body);
+}
+
+async function savePublicSubscription(uris) {
+  const token = crypto.randomBytes(24).toString('base64url');
+  const target = path.join(SUBSCRIPTIONS, `${token}.json`);
+  const temporary = `${target}.tmp`;
+  const saved = { createdAt: new Date().toISOString(), uris };
+  await writeFile(temporary, JSON.stringify(saved), { mode: 0o600, flag: 'wx' });
+  await chmod(temporary, 0o600);
+  await rename(temporary, target);
+  publicSubscriptions.set(token, saved);
+  return token;
 }
 
 function fail(response, status, message, code = '') {
@@ -762,6 +784,19 @@ async function route(request, response) {
     return sendJson(response, 200, { ok: true, service: 'Connecso Outbound Audit', version: '2.1' });
   }
 
+  const publicSubMatch = url.pathname.match(/^\/sub\/([A-Za-z0-9_-]{32})$/);
+  if (request.method === 'GET' && publicSubMatch) {
+    const subscription = publicSubscriptions.get(publicSubMatch[1]);
+    if (!subscription) return fail(response, 404, 'این لینک اشتراک پیدا نشد.');
+    const body = Buffer.from(subscription.uris.join('\n'), 'utf8').toString('base64');
+    headers(response, 'text/plain; charset=utf-8');
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('Content-Disposition', 'inline; filename="subscription.txt"');
+    response.writeHead(200, { 'Content-Length': Buffer.byteLength(body) });
+    response.end(body);
+    return;
+  }
+
   if (!authorized(request)) {
     if (request.method === 'GET' && !url.pathname.startsWith('/api/')) return redirect(response, '/login');
     return fail(response, 401, 'برای ادامه وارد پنل شو.');
@@ -857,6 +892,24 @@ async function route(request, response) {
   }
   if (request.method === 'GET' && url.pathname === '/api/history') {
     return sendJson(response, 200, publicHistory());
+  }
+  const createSubMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/subscriptions$/);
+  if (request.method === 'POST' && createSubMatch) {
+    const job = jobs.get(createSubMatch[1]);
+    if (!job) return fail(response, 404, 'این بررسی در سابقه پیدا نشد.');
+    let input;
+    try { input = JSON.parse(await readBody(request)); }
+    catch (error) { return fail(response, error.status || 400, error.status ? error.message : 'متن درخواست معتبر نیست.'); }
+    if (!Array.isArray(input.uris) || !input.uris.length || input.uris.length > 500) {
+      return fail(response, 400, 'برای ساخت لینک، بین ۱ تا ۵۰۰ کانکشن انتخاب کن.');
+    }
+    const allowed = new Set(job.results.filter((item) => item.ok && item.uri).map((item) => item.uri));
+    const uris = [...new Set(input.uris.filter((uri) => typeof uri === 'string' && allowed.has(uri)))];
+    if (!uris.length || uris.length !== new Set(input.uris).size) {
+      return fail(response, 400, 'بعضی از کانکشن‌های انتخاب‌شده در نتیجه‌های موفق این بررسی نیستند.');
+    }
+    const token = await savePublicSubscription(uris);
+    return sendJson(response, 201, { token, count: uris.length });
   }
   const auditStopMatch = url.pathname.match(/^\/api\/jobs\/([A-Za-z0-9_-]+)\/stop$/);
   if (request.method === 'POST' && auditStopMatch) {
